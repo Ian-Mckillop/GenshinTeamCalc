@@ -4,10 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4e5ef489-6825-4a91-803c-692c257f8570" name="Changes" comment="Added base dataclasses for abilities, states, and buffs.">
-      <change afterPath="$PROJECT_DIR$/engine/entities.py" afterDir="false" />
+    <list default="true" id="4e5ef489-6825-4a91-803c-692c257f8570" name="Changes" comment="Created Character, Weapon, Artifact dataclasses, added a function to calculate artifact stats &amp; a character's out of combat stats.">
+      <change afterPath="$PROJECT_DIR$/engine/damage.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/engine/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/engine/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/engine/entities.py" beforeDir="false" afterPath="$PROJECT_DIR$/engine/entities.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -56,6 +56,8 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Python.damage.executor": "Run",
+    "Python.entities.executor": "Run",
     "Python.main.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
@@ -110,7 +112,15 @@
       <option name="project" value="LOCAL" />
       <updated>1794812480047</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="Created Character, Weapon, Artifact dataclasses, added a function to calculate artifact stats &amp; a character's out of combat stats.">
+      <option name="closed" value="true" />
+      <created>1794819715069</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1794819715069</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -127,6 +137,7 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Initial Commit" />
     <MESSAGE value="Added base dataclasses for abilities, states, and buffs." />
-    <option name="LAST_COMMIT_MESSAGE" value="Added base dataclasses for abilities, states, and buffs." />
+    <MESSAGE value="Created Character, Weapon, Artifact dataclasses, added a function to calculate artifact stats &amp; a character's out of combat stats." />
+    <option name="LAST_COMMIT_MESSAGE" value="Created Character, Weapon, Artifact dataclasses, added a function to calculate artifact stats &amp; a character's out of combat stats." />
   </component>
 </project>

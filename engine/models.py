@@ -40,6 +40,8 @@ class Ability:
     is_override: bool = False
     required_states: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
+    cast_duration: float = 0.0
+    hit_offsets: list[float] = field(default_factory=list)
 
 
 @dataclass

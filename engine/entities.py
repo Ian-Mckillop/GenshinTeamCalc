@@ -69,16 +69,16 @@ class Character:
             A dictionary mapping stat names to total values across a character, their weapon, and their artifacts.
         """
         combat_stats = {
-            "Base HP" :  self.base_hp,
-            "Base ATK" : self.base_atk + self.weapon.base_atk,
-            "Base DEF" : self.base_def,
-            "HP%" : 0.0,
-            "Flat HP" : 0.0,
-            "ATK%" : 0.0,
-            "Flat ATK" : 0.0,
-            "DEF%" : 0.0,
-            "Flat DEF" : 0.0,
-            "Elemental Mastery" : 0.0,
+            "Base HP":  self.base_hp,
+            "Base ATK": self.base_atk + self.weapon.base_atk,
+            "Base DEF": self.base_def,
+            "HP%": 0.0,
+            "Flat HP": 0.0,
+            "ATK%": 0.0,
+            "Flat ATK": 0.0,
+            "DEF%": 0.0,
+            "Flat DEF": 0.0,
+            "Elemental Mastery": 0.0,
             "Crit Rate": 0.05,
             "Crit Damage": 0.50,
             "Energy Recharge": 1.0,
@@ -95,9 +95,24 @@ class Character:
                 new_stat_value = combat_stats.get(stat_name, 0.0) + stat_value
                 combat_stats[stat_name] = new_stat_value
 
-        combat_stats["Max HP"] = combat_stats["Base HP"] * (1 + combat_stats["HP%"]) + combat_stats["Flat HP"]
+        combat_stats["HP"] = combat_stats["Base HP"] * (1 + combat_stats["HP%"]) + combat_stats["Flat HP"]
         combat_stats["ATK"] = combat_stats["Base ATK"] * (1 + combat_stats["ATK%"]) + combat_stats["Flat ATK"]
         combat_stats["DEF"] = combat_stats["Base DEF"] * (1 + combat_stats["DEF%"]) + combat_stats["Flat DEF"]
 
-        print(combat_stats)
+        return combat_stats
 
+
+@dataclass
+class Enemy:
+    """
+    Blueprint for an Enemy.
+    Defaults resistances to 10%.
+    """
+    lvl: int= 100
+    resistances: dict[str, float] = field(default_factory=dict)
+
+    def __post_init__(self):
+        # The default resistance in genshin is 10%.
+        possible_resistances = ["Pyro", "Hydro", "Anemo", "Electro", "Dendro", "Cryo", "Geo", "Physical"]
+        for resistance in possible_resistances:
+            self.resistances.setdefault(resistance, 0.1)

@@ -1,11 +1,22 @@
 import engine.models as models
 import engine.entities as entities
+import engine.damage as damage
+from engine.damage import calculate_hit_damage
 
-"""
-anaSkillTap = models.Ability(
+
+ana_skill_tap = models.Ability(
     parent_name="Skill: Tap",
     component_name="Skill: Tap",
-    mv=2.128
+    mv=2.128,
+    total_hits= 1,
+    scaling_stat= "ATK",
+    element= "Cryo",
+    attack_type= "Stellar-Conduct",
+    tags= [
+        "TAG_SKILL",
+        "TAG_ANA_TAP_SKILL",
+        "TAG_STELLAR_CONDUCT"
+    ]
 )
 
 
@@ -15,23 +26,18 @@ anaHoldSkill = models.StateRule(
     base_duration= 15,
 )
 
-anaAccBase = models.BuffRule(
+ana_acc_base = models.BuffRule(
     buff_id= "BUFF_ANA_ACC_BASE",
     buff_name= "Accolades (Base)",
     stat= "Crit Damage",
     base_value= .12,
     character_source= "Anastasya",
-    required_states= ["ANA_ACCOLADES"],
-    buff_group= "GRP_ACCOLADES",
-
 )
 
 
 
-print(anaSkillTap)
-print(anaHoldSkill)
-print(anaAccBase)
-"""
+
+
 
 Silverdawn = entities.Weapon(
     name="Silverdawn",
@@ -66,4 +72,6 @@ Anastasya = entities.Character(
 
 )
 
-Anastasya.out_of_combat_stats()
+test_enemy = entities.Enemy()
+
+calculate_hit_damage(Anastasya, ana_skill_tap, test_enemy, [ana_acc_base])
