@@ -1,6 +1,7 @@
 from dataclasses import field
 from dataclasses import dataclass
 
+
 # --- Constants ---
 
 main_stat_dict = {
@@ -35,13 +36,19 @@ class Ability:
     hit_index: int = 1
     total_hits: int = 1
     scaling_stat: str = "ATK"
-    element: str = "Phys"
+    element: str = "Physical"
     attack_type: str = "Normal Attack"
     is_override: bool = False
     required_states: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
     cast_duration: float = 0.0
     hit_offsets: list[float] = field(default_factory=list)
+    summon_id: str | None = None
+    sub_abilities: list["Ability"] = field(default_factory=list)
+    gauge_units: float = 1.0
+    icd_group: str = "DEFAULT"
+    icd_time: float = 2.5
+    icd_hits: int = 3
 
 
 @dataclass
@@ -51,13 +58,14 @@ class StateRule:
     """
     state_id: str
     base_duration: float
+    character_source: str = "NONE"
     trigger_tags: list[str] = field(default_factory=list)
     required_states: list[str] = field(default_factory=list)
     freeze_state: list[str] = field(default_factory=list)
     termination_rules: list[str] = field(default_factory=list)
     termination_events: list[str] = field(default_factory=list)
     max_stacks: int = 1
-    refresh_mode: str = "REFRESH_ALL"
+    refresh_mode: str = "REFRESH ALL"
     tick_interval: float = 0.0
 
 
@@ -73,13 +81,14 @@ class BuffRule:
     character_source: str = "NONE"
     required_states: list[str] = field(default_factory=list)
     min_stacks: int = 1
-    scale_with_stacks: bool = True
+    scale_with_stacks: bool = False
     buff_group: str = "NONE"
     scaling_stat: str = "NONE"
     max_value: float = 0.0
+    scaling_order: int = 0
     duration_mode: str = "STATE_BOUND"
     linger_duration: float = 0.0
-    target_scope: str = "TEAMWIDE"
+    target_scope: str = "TEAM"
     party_count_rule: str = "NONE"
     ability_filters: list[str] = field(default_factory=list)
     element_filters: list[str] = field(default_factory=list)

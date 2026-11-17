@@ -1,8 +1,59 @@
 import engine.models as models
 import engine.entities as entities
-import engine.damage as damage
 from engine.damage import calculate_hit_damage
+from engine.simulator import simulate_rotation, RotationStep
 
+
+ana_palestar_hit_1 = models.Ability(
+    parent_name="Skill: Palestar Crown",
+    component_name="Skill: Palestar Crown Hit 1",
+    mv=1.152,
+    hit_index= 1,
+    total_hits= 3,
+    scaling_stat= "ATK",
+    element= "Cryo",
+    attack_type= "Skill",
+    tags= [
+        "TAG_SKILL",
+        "TAG_SUMMON"
+    ],
+    hit_offsets=[2,4,6,8,10,12,14,16,18,20],
+    summon_id= "Palestar Crown"
+)
+
+ana_palestar_hit_2 = models.Ability(
+    parent_name="Skill: Palestar Crown",
+    component_name="Skill: Palestar Crown Hit 2",
+    mv=1.152,
+    hit_index= 2,
+    total_hits= 3,
+    scaling_stat= "ATK",
+    element= "Cryo",
+    attack_type= "Skill",
+    tags= [
+        "TAG_SKILL",
+        "TAG_SUMMON"
+    ],
+    hit_offsets=[2,4,6,8,10,12,14,16,18,20],
+    summon_id= "Palestar Crown"
+)
+
+ana_palestar_hit_3 = models.Ability(
+    parent_name="Skill: Palestar Crown",
+    component_name="Skill: Palestar Crown Hit 3",
+    mv=0,
+    hit_index= 3,
+    total_hits= 3,
+    scaling_stat= "ATK",
+    element= "Cryo",
+    attack_type= "Skill",
+    tags= [
+        "TAG_SKILL",
+        "TAG_SUMMON"
+    ],
+    hit_offsets=[2,4,6,8,10,12,14,16,18,20],
+    summon_id= "Palestar Crown"
+)
 
 ana_skill_tap = models.Ability(
     parent_name="Skill: Tap",
@@ -11,27 +62,40 @@ ana_skill_tap = models.Ability(
     total_hits= 1,
     scaling_stat= "ATK",
     element= "Cryo",
-    attack_type= "Stellar-Conduct",
+    attack_type= "Skill",
     tags= [
         "TAG_SKILL",
         "TAG_ANA_TAP_SKILL",
-        "TAG_STELLAR_CONDUCT"
-    ]
+    ],
+    cast_duration= 1,
+    hit_offsets= [1],
+    sub_abilities= [ana_palestar_hit_1, ana_palestar_hit_2, ana_palestar_hit_3]
+
 )
 
 
 
-anaHoldSkill = models.StateRule(
-    state_id= "ANA_HOLD_SKILL",
-    base_duration= 15,
+
+
+
+
+
+state_ana_accolades = models.StateRule(
+    state_id= "ANA_ACCOLADES",
+    base_duration= 20,
+    trigger_tags= [
+        "TAG_ANA_TAP_SKILL",
+        "CAST"
+    ],
+    termination_rules= ["FULL_DURATION"],
 )
 
-ana_acc_base = models.BuffRule(
+buff_ana_accolades_base = models.BuffRule(
     buff_id= "BUFF_ANA_ACC_BASE",
     buff_name= "Accolades (Base)",
     stat= "Crit Damage",
     base_value= .12,
-    character_source= "Anastasya",
+    required_states= ["ANA_ACCOLADES"],
 )
 
 
@@ -66,12 +130,22 @@ Anastasya = entities.Character(
     lvl= 90,
     artifact_set= [Epochal_Advent],
     ascension_stat= {
-        "Crit Rate": .192
+        "Crit Damage": .384
     },
-    artifact_stats= models.artifact_stats(sands= "ATK%", gob= "ATK%", circ= "Crit Damage", em= 6,cr= 4,cd= 8,er= 2)
-
+    artifact_stats= models.artifact_stats(sands= "ATK%", gob= "ATK%", circ= "Crit Damage",cr= 10,cd= 8,er= 2),
+    abilities= [ana_skill_tap],
+    state_rules= [state_ana_accolades],
+    buff_rules= [buff_ana_accolades_base],
+    reaction_override= {
+        "Superconduct" : "Stellar-Conduct",
+        "Swirl" : "Stellar Swirl",
+    }
 )
 
 test_enemy = entities.Enemy()
 
-calculate_hit_damage(Anastasya, ana_skill_tap, test_enemy, [ana_acc_base])
+calculate_hit_damage(Anastasya, ana_skill_tap, test_enemy, [buff_ana_accolades_base])
+
+first_step = RotationStep(Anastasya, ana_skill_tap)
+rotation = simulate_rotation([Anastasya], test_enemy, [first_step])
+print(rotation)

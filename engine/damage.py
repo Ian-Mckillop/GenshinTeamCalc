@@ -4,16 +4,45 @@ import re
 # --- Constants ---
 
 base_reaction_coefficients = {
-    "Lunar-Bloom": 1,
+    "Lunar-Bloom": 1.0,
     "Lunar-Crystallize": 1.6,
-    "Lunar-Charged": 3,
-    "Stellar-Conduct": 2,
-    "Stellar Swirl": 1
+    "Lunar-Charged": 3.0,
+    "Stellar-Conduct": 1.0,
+    "Stellar Swirl": 1.0
+}
+
+amplifying_coefficients = {
+    "Melt": 2.0,
+    "Vaporize": 2.0,
+    "Reverse Melt": 1.5,
+    "Reverse Vaporize": 1.5
+}
+
+additive_coefficients = {
+    "Aggravate": 1.15,
+    "Spread": 1.25
+}
+
+transformative_coefficients = {
+    "Swirl": 0.6,
+    "Superconduct": 1.5,
+    "Electro-Charged": 2.0,
+    "Overloaded": 2.75,
+    "Shattered": 3.0,
+    "Bloom": 2.0,
+    "Hyperbloom": 3.0,
+    "Burgeon": 3.0,
+}
+
+level_multipliers = {
+    90: 1446.85,
+    95: 1561.47,
+    100: 1674.81
 }
 
 # --- Functions ---
 
-def calculate_hit_damage(attacker: entities.Character, ability: models.Ability, enemy: entities.Enemy, active_buffs: list[models.BuffRule]):
+def calculate_hit_damage(attacker: entities.Character, ability: models.Ability, enemy: entities.Enemy, active_buffs: list[models.BuffRule], reaction: str | None = None):
     """
     Calculates the damage the inputted attack would deal.
 
@@ -22,6 +51,7 @@ def calculate_hit_damage(attacker: entities.Character, ability: models.Ability, 
         ability (models.Ability): The ability used by the attacker.
         enemy (entities.Enemy): The enemy being attacked by the attacker.
         active_buffs (list[models.BuffRule]): The buffs currently active on the attacker.
+        reaction (str | None): The reaction triggered by the ability.
 
     Returns:
         final_damage (float): The total damage dealt by the attack.
@@ -37,15 +67,16 @@ def calculate_hit_damage(attacker: entities.Character, ability: models.Ability, 
             if not ((ability.attack_type in buff.ability_filters) or any(
                     tag in buff.ability_filters for tag in ability.tags)):
                 continue
-
-        base_stats[buff.stat] = base_stats.get(buff.stat, 0.0) + buff.base_value
+        if buff.stat == "Original DMG Mult":
+            base_stats["Original DMG Mult"] = base_stats.get("Original DMG Mult", 1.0) * buff.base_value
+        else:
+            base_stats[buff.stat] = base_stats.get(buff.stat, 0.0) + buff.base_value
 
     base_stats["HP"] = base_stats["Base HP"] * (1 + base_stats["HP%"]) + base_stats["Flat HP"]
     base_stats["ATK"] = base_stats["Base ATK"] * (1 + base_stats["ATK%"]) + base_stats["Flat ATK"]
     base_stats["DEF"] = base_stats["Base DEF"] * (1 + base_stats["DEF%"]) + base_stats["Flat DEF"]
 
-    base_dmg = base_stats[ability.scaling_stat] * ability.mv
-    base_dmg_mult = 1 + base_stats.get("Base DMG Mult", 0.0)
+    em = base_stats.get("Elemental Mastery", 0.0)
     effective_res = enemy.resistances.get(ability.element, 0.1) - base_stats.get("RES Shred", 0.0)
 
     if effective_res < 0:
@@ -55,30 +86,68 @@ def calculate_hit_damage(attacker: entities.Character, ability: models.Ability, 
     else:
         res_mult = 1 / (4 * effective_res + 1)
 
+    lvl_mult = level_multipliers.get(attacker.lvl, 0.0)
+    rxn_dmg_bonus = base_stats.get("Reaction DMG%", 0.0) + base_stats.get(f"{reaction} DMG%", 0.0)
+    # Transformative Reaction Branch
+    if reaction in transformative_coefficients:
+        rxn_coeff = transformative_coefficients[reaction]
+        em_bonus = (16 * em) / (em + 2000)
+        rxn_crit_mult = (
+                1
+                + max(0.0, min(1.0, base_stats.get("Reaction Crit Rate", 0.0) + base_stats.get(f"{reaction} Crit Rate", 0.0)))
+                * (base_stats.get("Reaction Crit Damage", 0.0) + base_stats.get(f"{reaction} Crit Damage", 0.0))
+        )
+
+        return lvl_mult * rxn_coeff * (1 + em_bonus + rxn_dmg_bonus) * rxn_crit_mult * res_mult
+
+    base_dmg = base_stats[ability.scaling_stat] * ability.mv
+    base_dmg_mult = 1 * base_stats.get("Original DMG Mult", 1.0)
     crit_mult = 1 + max(0, min(1, base_stats["Crit Rate"])) * base_stats["Crit Damage"]
 
+    # Standard Damage Branch
     if not (any(re.search(r"stellar|lunar", tag, re.IGNORECASE) for tag in ability.tags)):
-
         additive_base_dmg = base_stats.get("Flat DMG", 0.0)
-        dmg_p_mult = 1 + base_stats.get("All DMG%", 0.0) + base_stats.get(f"{ability.element} DMG%", 0.0) + base_stats.get(f"{ability.attack_type} DMG%", 0.0)
+        reaction_mult = 1.0
 
-        def_mult = (attacker.lvl + 100) / (attacker.lvl + 100 + ((enemy.lvl + 100) * (1 - base_stats.get("Def Shred", 0.0)) * (1 - base_stats.get("Def Ignore", 0.0))))
-        reaction_mult = 1
+        if reaction in additive_coefficients:
+            rxn_coeff = additive_coefficients[reaction]
+            em_bonus = (5 * em) / (em + 1200)
+            additive_base_dmg += lvl_mult * rxn_coeff * (1 + em_bonus + rxn_dmg_bonus)
 
-        final_dmg = ((base_dmg * base_dmg_mult) + additive_base_dmg) * dmg_p_mult * crit_mult * def_mult * res_mult * reaction_mult
+        elif reaction in amplifying_coefficients:
+            amp_base = amplifying_coefficients[reaction]
+            em_bonus = (2.78 * em) / (em + 1400)
+            reaction_mult = amp_base * (1 + em_bonus + rxn_dmg_bonus)
+
+        dmg_p_mult = (
+                1
+                + base_stats.get("All DMG%", 0.0)
+                + base_stats.get(f"{ability.element} DMG%", 0.0)
+                + base_stats.get(f"{ability.attack_type} DMG%", 0.0)
+        )
+        def_mult = (attacker.lvl + 100) / (
+                attacker.lvl + 100
+                + ((enemy.lvl + 100) * (1 - base_stats.get("Def Shred", 0.0)) * (1 - base_stats.get("Def Ignore", 0.0)))
+        )
+
+        return ((base_dmg * base_dmg_mult) + additive_base_dmg) * dmg_p_mult * crit_mult * def_mult * res_mult * reaction_mult
 
 
 
     else:
-        base_reaction_coefficient = base_reaction_coefficients[ability.attack_type]
+        base_reaction_coefficient = base_reaction_coefficients[ability.attack_type] * (1 + base_stats.get("Reaction Base Mult", 0.0))
         reaction_base_dmg_p = 1 + base_stats.get("Reaction Base DMG%", 0.0)
-        reaction_dmg_p = 1 + ((6 * base_stats.get("Elemental Mastery", 0.0)) / (base_stats.get("Elemental Mastery", 0.0) + 2000)) + base_stats.get(f"{ability.attack_type} DMG%", 0.0) + base_stats.get("Stellar DMG%", 0.0) + base_stats.get("Lunar DMG%", 0.0)
+        reaction_dmg_p = (
+                1
+                + ((6 * em) / (em + 2000))
+                + base_stats.get(f"{ability.attack_type} DMG%", 0.0)
+                + base_stats.get("Stellar DMG%", 0.0)
+                + base_stats.get("Lunar DMG%", 0.0)
+        )
         additive_base_dmg = base_stats.get("Reaction Flat DMG", 0.0)
         elevation_mult = 1 + base_stats.get("Elevation%", 0.0)
 
-        final_dmg = ((base_reaction_coefficient * base_dmg * base_dmg_mult * reaction_base_dmg_p * reaction_dmg_p) + additive_base_dmg) * elevation_mult * crit_mult * res_mult
-
-    return final_dmg
+        return ((base_reaction_coefficient * base_dmg * base_dmg_mult * reaction_base_dmg_p * reaction_dmg_p) + additive_base_dmg) * elevation_mult * crit_mult * res_mult
 
 
 
