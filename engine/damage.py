@@ -205,6 +205,7 @@ def calculate_hit_damage(attacker: entities.Character, ability: models.Ability, 
         rxn_dmg_p = (
                 1
                 + ((6 * em) / (em + 2000))
+                + base_stats.get("Reaction DMG%", 0.0)
                 + base_stats.get(f"{ability.attack_type} DMG%", 0.0)
                 + base_stats.get("Stellar DMG%" if is_stellar else "Lunar DMG%", 0.0)
         )
