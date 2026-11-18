@@ -51,6 +51,9 @@ class Character:
     state_rules: list[StateRule] = field(default_factory=list)
     buff_rules: list[BuffRule] = field(default_factory=list)
     reaction_override: dict[str, str] = field(default_factory=dict)
+    polestar_bonus_stacks: int = 0
+    polestar_instant_buff: bool = False
+    instant_lv2_vortex: bool = False
 
     def __post_init__(self):
         # A lvl 100 Character has ~7.1% more Base HP and DEF, and ~22.5% more Base ATK then a lvl 90 Character.

@@ -139,7 +139,10 @@ Anastasya = entities.Character(
     reaction_override= {
         "Superconduct" : "Stellar-Conduct",
         "Swirl" : "Stellar Swirl",
-    }
+    },
+    polestar_bonus_stacks= 1,
+    polestar_instant_buff= True,
+    instant_lv2_vortex= True,
 )
 
 test_enemy = entities.Enemy()

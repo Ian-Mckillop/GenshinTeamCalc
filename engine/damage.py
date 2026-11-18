@@ -41,7 +41,70 @@ level_multipliers = {
     100: 1674.81
 }
 
+LUNAR_WEIGHTS = (1.0, 0.5, 1 / 12, 1 / 12)
+STELLAR_SWIRL_WEIGHTS = (0.6, 0.3, 0.05, 0.05)
+
 # --- Functions ---
+
+def calculate_reaction_ls_damage(
+        contributors: list[tuple[entities.Character, list[models.BuffRule]]],
+        element: str,
+        enemy: entities.Enemy,
+        reaction: str,
+        rxn_coeff: float,
+) -> float:
+    """
+    Calculates multi-contributor Lunar or Stellar reaction damage.
+
+    Args:
+        contributors (list[tuple[entities.Character, list[models.BuffRule]]]): A list of contributing characters and their active buffs.
+        element (str): The element of the attack.
+        enemy (entities.Enemy): The Enemy being attacked.
+        reaction (str): The reaction being triggered.
+        rxn_coeff (float): The coefficient of the reaction.
+
+    Returns:
+        float: The multi-contributor Lunar or Stellar reaction damage.
+    """
+    individual_damages: list[float] = []
+
+    for char, active_buffs in contributors:
+        stats = char.out_of_combat_stats()
+        for buff in active_buffs:
+            if buff.element_filters and element not in buff.element_filters:
+                continue
+            if buff.ability_filters and not (reaction in buff.ability_filters or "Reaction" in buff.ability_filters):
+                continue
+            stats[buff.stat] = stats.get(buff.stat, 0) + buff.base_value
+
+        em = stats.get("Elemental Mastery", 0.0)
+        lvl_mult = level_multipliers.get(char.lvl, 0.0)
+        effective_res = enemy.resistances.get(element, 0.1) - stats.get("RES Shred", 0.0)
+
+        if effective_res < 0:
+            res_mult = 1 - effective_res / 2
+        elif 0.75 > effective_res >= 0:
+            res_mult = 1 - effective_res
+        else:
+            res_mult = 1 / (4 * effective_res + 1)
+
+        rxn_base_dmg_p = 1 + stats.get("Reaction Base DMG%", 0.0)
+        rxn_dmg_p = (
+                1
+                + ((6 * em) / (em + 2000))
+                + stats.get("Reaction DMG%", 0.0)
+                + stats.get(f"{reaction} DMG%", 0.0)
+                + stats.get("Stellar DMG%" if "Stellar" in reaction else "Lunar DMG%", 0.0)
+        )
+        flat_dmg = stats.get("Reaction Flat DMG", 0.0)
+        elevation_mult = 1 + stats.get("Elevation%", 0.0)
+        crit_mult = 1 + max(0, min(1, stats.get("Crit Rate", 0.0))) * stats.get("Crit Damage", 0.0)
+        damage = ((lvl_mult * rxn_coeff * rxn_base_dmg_p * rxn_dmg_p) + flat_dmg) * elevation_mult * crit_mult * res_mult
+        individual_damages.append(damage)
+
+    individual_damages.sort(reverse=True)
+    weights = STELLAR_SWIRL_WEIGHTS if "Stellar" in reaction else LUNAR_WEIGHTS
+    return sum(w * d for w, d in zip(weights, individual_damages))
 
 def calculate_hit_damage(attacker: entities.Character, ability: models.Ability, enemy: entities.Enemy, active_buffs: list[models.BuffRule], reaction: str | None = None):
     """
@@ -136,19 +199,19 @@ def calculate_hit_damage(attacker: entities.Character, ability: models.Ability, 
 
 
     else:
-        base_reaction_coefficient = base_reaction_coefficients[ability.attack_type] * (1 + base_stats.get("Reaction Base Mult", 0.0))
-        reaction_base_dmg_p = 1 + base_stats.get("Reaction Base DMG%", 0.0)
-        reaction_dmg_p = (
+        base_rxn_coefficient = (base_reaction_coefficients.get(ability.attack_type, 1.0) + base_stats.get("Base Reaction Coefficient", 0.0)) * (1 + base_stats.get("Reaction Base Mult", 0.0))
+        rxn_base_dmg_p = 1 + base_stats.get("Reaction Base DMG%", 0.0)
+        is_stellar = any(re.search(r"stellar", t, re.IGNORECASE) for t in [ability.attack_type, *ability.tags])
+        rxn_dmg_p = (
                 1
                 + ((6 * em) / (em + 2000))
                 + base_stats.get(f"{ability.attack_type} DMG%", 0.0)
-                + base_stats.get("Stellar DMG%", 0.0)
-                + base_stats.get("Lunar DMG%", 0.0)
+                + base_stats.get("Stellar DMG%" if is_stellar else "Lunar DMG%", 0.0)
         )
         additive_base_dmg = base_stats.get("Reaction Flat DMG", 0.0)
         elevation_mult = 1 + base_stats.get("Elevation%", 0.0)
 
-        return ((base_reaction_coefficient * base_dmg * base_dmg_mult * reaction_base_dmg_p * reaction_dmg_p) + additive_base_dmg) * elevation_mult * crit_mult * res_mult
+        return ((base_rxn_coefficient * base_dmg * base_dmg_mult * rxn_base_dmg_p * rxn_dmg_p) + additive_base_dmg) * elevation_mult * crit_mult * res_mult
 
 
 

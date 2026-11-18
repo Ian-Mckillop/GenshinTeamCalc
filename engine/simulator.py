@@ -3,7 +3,7 @@ import engine.entities as entities
 from engine.models import Ability
 import copy
 import heapq
-from engine.damage import calculate_hit_damage, transformative_coefficients
+from engine.damage import calculate_hit_damage, transformative_coefficients, calculate_reaction_ls_damage
 
 # --- Constants ---
 
@@ -65,6 +65,13 @@ class DendroCore:
     active: bool = True
 
 @dataclass
+class StellarVortex:
+    triggers: int
+    contributors: dict[str, entities.Character]
+    is_lv2: bool = False
+    active: bool = True
+
+@dataclass
 class SimEvent:
     """
     Blueprint for a simulation event.
@@ -81,6 +88,7 @@ class SimEvent:
     character: entities.Character
     ability: entities.Ability
     core: DendroCore | None = None
+    vortex: StellarVortex | None = None
 
     def __lt__(self, other) -> bool:
         return (self.timestamp, self.event_type) < (other.timestamp, other.event_type)
@@ -238,6 +246,37 @@ def process_burning_tick(enemy: entities.Enemy, events: list[SimEvent], timestam
         return next_tick
     return None
 
+def resolve_reaction_override(team: list[entities.Character], reaction: str, search_elm: str) -> str:
+    """
+    Overrides a reaction if a team member overrides it.
+
+    Args:
+        team (list[entities.Character]): A team of characters.
+        reaction (str): The reaction to override.
+        search_elm (str): An element to check Swirl against.
+
+    Returns:
+        str: The overridden reaction, or the original reaction if not overridden.
+    """
+    if reaction == "Swirl" and search_elm != "Cryo":
+        return reaction
+    for char in team:
+        if reaction in char.reaction_override:
+            return char.reaction_override[reaction]
+    return reaction
+
+def detonate_vortex(
+        vortex: StellarVortex,
+        enemy: entities.Enemy,
+        buffs_by_char: dict[str, list[entities.BuffRule]],
+        damage_by_char: dict[str, float],
+) -> None:
+    coeff = 3 if vortex.is_lv2 or vortex.triggers >= 3 else 2.0
+    contributors = [(char, buffs_by_char[char.name]) for char in vortex.contributors.values()]
+    damage = calculate_reaction_ls_damage(contributors, "Cryo", enemy, "Stellar Swirl", coeff)
+    trigger_char = next(iter(vortex.contributors.values()))
+    damage_by_char[trigger_char.name] += damage
+
 def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rotation: list[RotationStep]):
     """
     Calculates the damage each character in a team deals, for a given rotation.
@@ -275,6 +314,11 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
 
     all_state_rules: list[entities.StateRule] = []
     all_buff_rules: list[entities.BuffRule] = []
+    # COME BACK TO THIS, Reaccess if this is the best way to handle Anastasya's A4
+    polestar_bonus_stacks = 0
+    polestar_instant_buff = False
+    instant_lv2_vortex = False
+
     for character in team:
         all_state_rules.extend(character.state_rules)
         all_buff_rules.extend(character.buff_rules)
@@ -283,9 +327,13 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
         if len(character.artifact_set) == 1:
             all_state_rules.extend(character.artifact_set[0].state_rules)
             all_buff_rules.extend(character.artifact_set[0].buff_rules)
+        polestar_bonus_stacks += character.polestar_bonus_stacks
+        polestar_instant_buff = polestar_instant_buff or character.polestar_instant_buff
+        instant_lv2_vortex = instant_lv2_vortex or character.instant_lv2_vortex
 
     active_states: dict[str, list[float]] = {}
     icd_tracker: dict[ tuple[str, str] , list[float]] = {}
+    aura_owners: dict[str, entities.Character] = {}
 
     on_field_character = None
     damage_by_char = {char.name: 0.0 for char in team}
@@ -298,8 +346,31 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
 
     dendro_cores: list[DendroCore] = []
 
+    polestar_expire: float = 0.0
+    polestar_buff_active: bool = False
+    polestar_record_end: float = 0.0
+    polestar_recorded_hits: int = 0
+    polestar_active_stacks: int = 0
+
+    active_vortex: StellarVortex | None = None
+    detonate_early_vortex: StellarVortex | None = None
+    stellar_swirl_contributors: dict[str, entities.Character] = {}
+    last_vortex_upgrade_time: float = -1.0
+
     while events:
         event = heapq.heappop(events)
+        if event.timestamp >= polestar_expire:
+            polestar_buff_active = False
+            polestar_record_end = 0.0
+            polestar_recorded_hits = 0
+            polestar_active_stacks = 0
+
+        while 0.0 < polestar_record_end <= event.timestamp:
+            polestar_buff_active = True
+            polestar_active_stacks = min(12, polestar_recorded_hits + polestar_bonus_stacks)
+            polestar_recorded_hits = 0
+            polestar_record_end += 4.0
+
         event_tags = [event.event_type, event.ability.attack_type, event.ability.element, *event.ability.tags]
         # clean out expired timestamps
         active_states = {state_name: [t for t in times if t > event.timestamp] for state_name, times in
@@ -345,10 +416,14 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                     triggered_reactions.append((rxn_name, "Dendro"))
 
             if applies_element:
+                if event.ability.element in ("Cryo", "Electro") and event.timestamp < polestar_expire:
+                    polestar_recorded_hits += 1
+
                 for aura_elm in sorted(enemy.auras.keys(), key=lambda el: (el != "Quicken", el != "Burning")):
                     search_elm = "Cryo" if aura_elm == "Frozen" else ("Pyro" if aura_elm == "Burning" else aura_elm)
                     if (search_elm, event.ability.element) in REACTIONS:
                         reaction, tax = REACTIONS[(search_elm, event.ability.element)]
+                        reaction = resolve_reaction_override(team, reaction, search_elm)
                         rxn_element = transformative_elements.get(reaction, search_elm)
                         if reaction == "Quicken":
                             quicken_gu = max(enemy.auras.get(reaction, [0.0])[0],
@@ -362,6 +437,7 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
 
                         if reaction == "Electro-Charged":
                             apply_aura(enemy, event.ability.element, event.ability.gauge_units)
+                            aura_owners[event.ability.element] = event.character
                             ec_owner = event.character
                             if next_ec_time is None:
                                 triggered_reactions.append(("Electro-Charged", "Electro"))
@@ -370,6 +446,7 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
 
                         if reaction == "Burning":
                             apply_aura(enemy, event.ability.element, event.ability.gauge_units)
+                            aura_owners[event.ability.element] = event.character
                             enemy.auras["Burning"] = [2.0, 0.0]
                             burning_owner = event.character
                             if next_burning_time is None:
@@ -377,6 +454,7 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                             break
 
                         decrement_aura(enemy, aura_elm, event.ability.gauge_units * tax)
+
                         if reaction == "Bloom":
                             core = DendroCore(creator = event.character)
                             dendro_cores.append(core)
@@ -389,10 +467,52 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                                 heapq.heappush(events, SimEvent(event.timestamp, "CORE_EXPIRE", overflow.creator, bloom_ability))
                             break
 
+                        if reaction == "Stellar-Conduct":
+                            active_states["Radiance: Stellar-Conduct"] = [event.timestamp + 8.0]
+                            if event.timestamp >= polestar_expire:
+                                polestar_record_end = event.timestamp + 4.0
+                                polestar_recorded_hits = 0
+                                if polestar_instant_buff:
+                                    polestar_buff_active = True
+                                    polestar_active_stacks = min(12, polestar_bonus_stacks)
+                                else:
+                                    polestar_buff_active = False
+                                    polestar_active_stacks = 0
+
+                            polestar_expire = event.timestamp + 6.0
+                            break
+
+                        if reaction == "Stellar Swirl":
+                            active_states["Radiance: Stellar Swirl"] = [event.timestamp + 8.0]
+                            hit_contributors = {event.character.name: event.character}
+                            if "Cryo" in aura_owners:
+                                hit_contributors[aura_owners["Cryo"].name] = aura_owners["Cryo"]
+
+                            triggered_reactions.append(("Stellar Swirl", "Anemo"))
+                            stellar_swirl_contributors = hit_contributors
+
+                            if active_vortex is None:
+                                is_lv2 = False
+                                if instant_lv2_vortex and (event.timestamp - last_vortex_upgrade_time) >= 1.0:
+                                    is_lv2 = True
+                                    last_vortex_upgrade_time = event.timestamp
+                                active_vortex = StellarVortex(triggers=1, contributors=dict(hit_contributors), is_lv2=is_lv2)
+                                vortex_ability = make_rxn_ability("Stellar Swirl", "Cryo")
+                                heapq.heappush(events, SimEvent(event.timestamp + 3.0, "VORTEX_EXPLODE", event.character, vortex_ability, vortex= active_vortex))
+                            else:
+                                active_vortex.triggers += 1
+                                active_vortex.contributors.update(hit_contributors)
+                                if active_vortex.triggers >= 6:
+                                    active_vortex.active = False
+                                    detonate_early_vortex = active_vortex
+                                    active_vortex = None
+                            break
+
                         triggered_reactions.append((reaction, rxn_element))
                         break
                 else:
                     apply_aura(enemy, event.ability.element, event.ability.gauge_units)
+                    aura_owners[event.ability.element] = event.character
 
         elif event.event_type == "REACTION_TICK":
             rxn_name = event.ability.parent_name
@@ -415,7 +535,11 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
             if event.core is not None and not event.core.active:
                 continue
 
-        if event.event_type in ("HIT", "REACTION_TICK", "CORE_EXPIRE"):
+        elif event.event_type == "VORTEX_EXPLODE":
+            if event.vortex is not None and not event.vortex.active:
+                continue
+
+        if event.event_type in ("HIT", "REACTION_TICK", "CORE_EXPIRE", "VORTEX_EXPLODE"):
             if event.event_type == "REACTION_TICK":
                 attacker = ec_owner if event.ability.parent_name == "Electro-Charged" else burning_owner
             else:
@@ -423,7 +547,8 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
 
             team_stats = {char.name: char.out_of_combat_stats() for char in team}
 
-            current_buffs = []
+            buffs_by_char: dict[str, list[entities.BuffRule]] = {char.name: [] for char in team}
+
             for order in (0, 1, 2, 3):
                 for buff in all_buff_rules:
                     if buff.scaling_order == order and (
@@ -448,9 +573,55 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                                 if not buff.ability_filters and not buff.element_filters:
                                     team_stats[char.name][buff.stat] = (team_stats[char.name].get(copied_buff.stat,0.0)
                                                                         + copied_buff.base_value)
-                                if char == attacker:
-                                    current_buffs.append(copied_buff)
+                                buffs_by_char[char.name].append(copied_buff)
                 for c, stats in team_stats.items(): recalc_total(stats)
+
+            if event.timestamp < polestar_expire:
+                polestar_buffs = [
+                    entities.BuffRule(
+                        buff_id="POLESTAR_PHYS_RES",
+                        buff_name="Polestar Physical Res Shred",
+                        character_source="Polestar Field",
+                        stat="RES Shred",
+                        base_value=0.40,
+                        target_scope="TEAM",
+                        element_filters=["Physical"],
+                    ),
+                ]
+                if polestar_buff_active:
+                    polestar_dmg_bonus = 0.28 + 0.01 * polestar_active_stacks
+                    polestar_buffs.extend([
+                        entities.BuffRule(
+                            buff_id= "POLESTAR_CRYO_DMG",
+                            buff_name= "Polestar Cryo DMG%",
+                            character_source="Polestar Field",
+                            stat="Cryo DMG%",
+                            base_value=polestar_dmg_bonus,
+                            target_scope="TEAM",
+                        ),
+                        entities.BuffRule(
+                            buff_id="POLESTAR_ELECTRO_DMG",
+                            buff_name="Polestar Electro DMG%",
+                            character_source="Polestar Field",
+                            stat="Electro DMG%",
+                            base_value=polestar_dmg_bonus,
+                            target_scope="TEAM",
+                        ),
+                    ])
+                    if polestar_active_stacks >= 1:
+                        polestar_buffs.append(
+                            entities.BuffRule(
+                                buff_id="POLESTAR_BASE_REACTION",
+                                buff_name="Polestar Base Reaction Coefficient",
+                                character_source="Polestar Field",
+                                stat="Base Reaction Coefficient",
+                                base_value=0.40 + 0.05 * polestar_active_stacks,
+                                target_scope="TEAM",
+                                ability_filters=["Stellar-Conduct"],
+                            )
+                        )
+                for char in team:
+                    buffs_by_char[char.name].extend(polestar_buffs)
 
             if event.event_type == "HIT":
                 # Override for Stellar or Lunar Reactions
@@ -458,8 +629,8 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                 #    reaction = char.reaction_override[reaction] if reaction in char.reaction_override.keys() else reaction
 
                 # Modifies the talent hit with at most 1 amp/add reaction
-                talent_rxn = next((rxn for rxn, _ in triggered_reactions if rxn not in transformative_coefficients), None)
-                event_damage = calculate_hit_damage(event.character, event.ability, enemy, current_buffs, talent_rxn)
+                talent_rxn = next((rxn for rxn, _ in triggered_reactions if rxn not in transformative_coefficients and rxn != "Stellar Swirl"), None)
+                event_damage = calculate_hit_damage(attacker, event.ability, enemy, buffs_by_char[attacker.name], talent_rxn)
 
                 # Adds a hit for every transformative reaction that occurs
                 for rxn, rxn_elm in triggered_reactions:
@@ -471,17 +642,30 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                             element= rxn_elm,
                             attack_type= "Reaction"
                         )
-                        event_damage += calculate_hit_damage(event.character, rxn_ability, enemy, current_buffs, rxn)
+                        event_damage += calculate_hit_damage(attacker, rxn_ability, enemy, buffs_by_char[attacker.name], rxn)
+                    elif rxn == "Stellar Swirl":
+                        contributors = [(char, buffs_by_char[char.name]) for char in stellar_swirl_contributors.values()]
+                        event_damage += calculate_reaction_ls_damage(contributors, "Anemo", enemy, "Stellar Swirl", 0.75)
 
                 damage_by_char[event.character.name] += event_damage
+                if detonate_early_vortex is not None:
+                    detonate_vortex(detonate_early_vortex, enemy, buffs_by_char, damage_by_char)
+                    detonate_early_vortex = None
+                    if event.timestamp < polestar_expire:
+                        polestar_recorded_hits += 1
 
             elif event.event_type in ("REACTION_TICK", "CORE_EXPIRE"):
                 rxn_name = event.ability.parent_name
-                event_damage = calculate_hit_damage(attacker, event.ability, enemy, current_buffs, rxn_name)
+                event_damage = calculate_hit_damage(attacker, event.ability, enemy, buffs_by_char[attacker.name], rxn_name)
                 damage_by_char[attacker.name] += event_damage
                 if rxn_name == "Electro-Charged":
                     next_ec_time = process_ec_tick(enemy, events, event.timestamp, ec_owner)
                 elif rxn_name == "Burning":
                     next_burning_time = process_burning_tick(enemy, events, event.timestamp, burning_owner)
+
+            elif event.event_type == "VORTEX_EXPLODE":
+                detonate_vortex(event.vortex, enemy, buffs_by_char, damage_by_char)
+                if event.timestamp < polestar_expire:
+                    polestar_recorded_hits += 1
 
     return damage_by_char
