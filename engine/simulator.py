@@ -1,3 +1,4 @@
+import itertools
 from dataclasses import dataclass
 import engine.entities as entities
 from engine.models import Ability
@@ -89,9 +90,10 @@ class SimEvent:
     ability: entities.Ability
     core: DendroCore | None = None
     vortex: StellarVortex | None = None
+    seq: int = 0
 
     def __lt__(self, other) -> bool:
-        return (self.timestamp, self.event_type) < (other.timestamp, other.event_type)
+        return (self.timestamp, self.event_type, self.seq) < (other.timestamp, other.event_type, other.seq)
 
 
 # --- Functions ---
@@ -106,6 +108,74 @@ def recalc_total(stats_dict):
     stats_dict["HP"] = stats_dict["Base HP"] * (1 + stats_dict["HP%"]) + stats_dict["Flat HP"]
     stats_dict["ATK"] = stats_dict["Base ATK"] * (1 + stats_dict["ATK%"]) + stats_dict["Flat ATK"]
     stats_dict["DEF"] = stats_dict["Base DEF"] * (1 + stats_dict["DEF%"]) + stats_dict["Flat DEF"]
+
+def check_required_states(
+        reqs: list[str],
+        global_states: dict[str, list[float]],
+        personal_states: dict[str, list[float]] | None = None,
+        all_personal_states: dict[str, dict[str, list[float]]] | None = None,
+) -> bool:
+    """
+    Checks the required states of an Ability.
+
+    Args:
+        reqs (list[str]): The required states of an Ability.
+        global_states (dict[str, list[float]]): The global states affecting a character.
+        personal_states (dict[str, list[float]]): The personal states affecting a character.
+        all_personal_states (dict[str, dict[str, list[float]]]): The personal states that are active for each character.
+
+    returns:
+        bool: Whether the required states are present.
+    """
+    for req in reqs:
+        if req.startswith("ANY:"):
+            state_id = req[4:]
+            count = len(global_states.get(state_id, []))
+            if all_personal_states:
+                count += sum(len(ps.get(state_id, [])) for ps in all_personal_states.values())
+            if count == 0:
+                return False
+            continue
+
+        if req.startswith("!ANY:"):
+            state_id = req[5:]
+            count = len(global_states.get(state_id, []))
+            if all_personal_states:
+                count += sum(len(ps.get(state_id, [])) for ps in all_personal_states.values())
+            if count > 0:
+                return False
+            continue
+
+        negated = req.startswith("!")
+        state_id = req[1:] if negated else req
+        count = len(global_states.get(state_id, [])) + (
+            len(personal_states.get(state_id, [])) if personal_states else 0
+        )
+        if negated and count > 0:
+            return False
+        if not negated and count == 0:
+            return False
+    return True
+
+def get_scope_targets(scope: str, source_name: str, team: list[entities.Character]) -> list[str]:
+    """
+    Find a list of character's names who are within the scope.
+
+    Args:
+        scope (str): The scope to find applicable targets.
+        source_name (str): The name of the source character.
+        team (list[entities.Character]): The team to search for applicable targets.
+
+    Returns:
+        list[str]: The list of character's names who are within the scope.
+    """
+    if scope == "SELF":
+        return [source_name]
+    if scope == "OTHER_TEAMMATES":
+        return [c.name for c in team if c.name != source_name]
+    if scope == "TEAM":
+        return [c.name for c in team]
+    return [] # "GLOBAL"
 
 def check_icd(icd_tracker: dict, event: SimEvent) -> bool:
     """
@@ -203,7 +273,12 @@ def make_rxn_ability(name: str, element: str) -> Ability:
     """
     return Ability(name, name, 0.0, element=element, attack_type="Reaction")
 
-def process_ec_tick(enemy: entities.Enemy, events: list[SimEvent], timestamp: float, ec_owner: entities.Character) -> float | None:
+def process_ec_tick(
+        enemy: entities.Enemy,
+        events: list[SimEvent],
+        timestamp: float, ec_owner: entities.Character,
+        seq: int
+) -> float | None:
     """
     Drains 0.4 GU from Electro & Hydro, and schedules the next EC tick if both auras still exist.
 
@@ -212,6 +287,7 @@ def process_ec_tick(enemy: entities.Enemy, events: list[SimEvent], timestamp: fl
         events (list[SimEvent]): A list of SimEvent objects.
         timestamp (float): The time at which this function was called.
         ec_owner (entities.Character): The owner of the EC tick.
+        seq (int): The sequence number of the SimEvent.
 
     Returns:
         float | None: The time of the next EC tick if the auras still exist, else None.
@@ -222,11 +298,17 @@ def process_ec_tick(enemy: entities.Enemy, events: list[SimEvent], timestamp: fl
     if "Hydro" in enemy.auras and "Electro" in enemy.auras:
         next_tick = timestamp + 1.0
         rxn_ability = make_rxn_ability("Electro-Charged", "Electro")
-        heapq.heappush(events, SimEvent(next_tick, "REACTION_TICK", ec_owner, rxn_ability))
+        heapq.heappush(events, SimEvent(next_tick, "REACTION_TICK", ec_owner, rxn_ability, seq=seq))
         return next_tick
     return None
 
-def process_burning_tick(enemy: entities.Enemy, events: list[SimEvent], timestamp: float, burning_owner: entities.Character) -> float | None:
+def process_burning_tick(
+        enemy: entities.Enemy,
+        events: list[SimEvent],
+        timestamp: float,
+        burning_owner: entities.Character,
+        seq: int
+) -> float | None:
     """
     Drains 0.4 GU from Electro & Hydro, and schedules the next EC tick if both auras still exist.
 
@@ -235,6 +317,7 @@ def process_burning_tick(enemy: entities.Enemy, events: list[SimEvent], timestam
         events (list[SimEvent]): A list of SimEvent objects.
         timestamp (float): The time at which this function was called.
         burning_owner (entities.Character): The owner of the Burning tick.
+        seq (int): The sequence number of the SimEvent.
 
     Returns:
         float | None: The time of the next Burning tick if the auras still exist, else None.
@@ -242,7 +325,7 @@ def process_burning_tick(enemy: entities.Enemy, events: list[SimEvent], timestam
     if "Burning" in enemy.auras:
         next_tick = timestamp + 0.25
         rxn_ability = make_rxn_ability("Burning", "Pyro")
-        heapq.heappush(events, SimEvent(next_tick, "REACTION_TICK", burning_owner, rxn_ability))
+        heapq.heappush(events, SimEvent(next_tick, "REACTION_TICK", burning_owner, rxn_ability, seq=seq))
         return next_tick
     return None
 
@@ -252,6 +335,7 @@ def process_lc_tick(
         timestamp: float,
         thundercloud_expire: float,
         lc_owner: entities.Character,
+        seq: int
 ) -> float | None:
     for elm in ("Electro", "Hydro"):
         decrement_aura(enemy, elm, 0.4)
@@ -259,7 +343,7 @@ def process_lc_tick(
     next_tick = timestamp + 2.0
     if "Hydro" in enemy.auras and "Electro" in enemy.auras and next_tick <= thundercloud_expire:
         rxn_ability = make_rxn_ability("Lunar-Charged", "Electro")
-        heapq.heappush(events, SimEvent(next_tick, "REACTION_TICK", lc_owner, rxn_ability))
+        heapq.heappush(events, SimEvent(next_tick, "REACTION_TICK", lc_owner, rxn_ability, seq=seq))
         return next_tick
     return None
 
@@ -311,6 +395,7 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
     current_time = 0.0
     on_field_character = None
     events = []
+    seq_counter = itertools.count()
 
     for step in rotation:
         if step.character != on_field_character and on_field_character is not None:
@@ -321,12 +406,12 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
         events = [e for e in events if not (
                     e.character == step.character and e.event_type == "HIT" and e.ability.summon_id in summon_ids and e.timestamp > current_time)]
 
-        events.append(SimEvent(current_time, "CAST", step.character, step.ability))
+        events.append(SimEvent(current_time, "CAST", step.character, step.ability,seq= next(seq_counter)))
         for offset in step.ability.hit_offsets:
-            events.append(SimEvent(current_time + offset, "HIT", step.character, step.ability))
+            events.append(SimEvent(current_time + offset, "HIT", step.character, step.ability, seq= next(seq_counter)))
         for sub in step.ability.sub_abilities:
             for offset in sub.hit_offsets:
-                events.append(SimEvent(current_time + offset, "HIT", step.character, sub))
+                events.append(SimEvent(current_time + offset, "HIT", step.character, sub, seq= next(seq_counter)))
         current_time += step.ability.cast_duration
 
     heapq.heapify(events)
@@ -392,6 +477,67 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
     lcrys_contributors: dict[str, entities.Character] = {}
     trigger_moondrift_harmony: bool = False
 
+    char_states: dict[str, dict[str, list[float]]] = {char.name: {} for char in team}
+    char_by_name: dict[str, entities.Character] = {char.name: char for char in team}
+
+    def schedule_state_expire(expire_time: float, owner: entities.Character, state_id: str):
+        heapq.heappush(events, SimEvent(expire_time, "STATE_EXPIRE", owner, make_rxn_ability(state_id, "Physical"), seq= next(seq_counter)))
+
+    def apply_state_triggers(trigger_char: entities.Character, tags: list[str], timestamp: float):
+        pre_global = {k:list(v) for k,v in active_states.items()}
+        pre_personal = {k:list(v) for k, v in char_states[trigger_char.name].items()}
+        for state in all_state_rules:
+            scope_ok = (
+            (state.trigger_scope == "SELF" and trigger_char.name == state.character_source)
+            or (state.trigger_scope == "OTHER_TEAMMATES" and trigger_char.name != state.character_source)
+            or (state.trigger_scope == "TEAM")
+            )
+            if not scope_ok or not all(tag in tags for tag in state.trigger_tags):
+                continue
+            if not check_required_states(state.required_states, pre_global, pre_personal):
+                continue
+
+            expire_time = timestamp + state.base_duration
+
+            if state.target_scope == "GLOBAL":
+                targets = [(active_states, char_by_name[state.character_source])]
+            else:
+                targets = [
+                    (char_states[name], char_by_name[name])
+                    for name in get_scope_targets(state.target_scope, state.character_source, team)
+                ]
+
+            for bucket, owner in targets:
+                if state.base_duration > 0:
+                    timers = bucket.setdefault(state.state_id, [])
+                    if state.refresh_mode == "REFRESH ALL":
+                        if len(timers) < state.max_stacks:
+                            timers.append(expire_time)
+                        bucket[state.state_id] = [expire_time] * len(timers)
+                    elif state.refresh_mode == "INDEPENDENT":
+                        timers.append(expire_time)
+                        if len(timers) > state.max_stacks:
+                            timers.pop(0)
+                    schedule_state_expire(expire_time, owner, state.state_id)
+
+                for term_id in state.termination_rules:
+                    bucket.pop(term_id, None)
+
+                for freeze_id in state.freeze_state:
+                    if freeze_id in bucket:
+                        bucket[freeze_id] = [t + state.base_duration for t in bucket[freeze_id] if t > timestamp]
+                        for new_t in bucket[freeze_id]:
+                            schedule_state_expire(new_t, owner, freeze_id)
+
+            if state.triggered_ability is not None:
+                source_char = char_by_name[state.character_source]
+                for offset in state.triggered_ability.hit_offsets:
+                    heapq.heappush(events, SimEvent(timestamp + offset, "HIT", source_char, state.triggered_ability,seq=next(seq_counter)))
+                for sub in state.triggered_ability.sub_abilities:
+                    for offset in sub.hit_offsets:
+                        heapq.heappush(events,SimEvent(timestamp + offset, "HIT", source_char, sub, seq=next(seq_counter)))
+
+
 
     while events:
         event = heapq.heappop(events)
@@ -413,36 +559,43 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
             polestar_record_end += 4.0
 
         event_tags = [event.event_type, event.ability.attack_type, event.ability.element, *event.ability.tags]
-        # clean out expired timestamps
-        active_states = {state_name: [t for t in times if t > event.timestamp] for state_name, times in
-                         active_states.items()}
+
+        # clean out expired timers
+        active_states = {
+            sid: [t for t in times if t > event.timestamp]
+            for sid, times in active_states.items()
+        }
+        for char in team:
+            char_states[char.name] = {
+                sid: [t for t in times if t > event.timestamp]
+                for sid, times in char_states[char.name].items()
+            }
+
+        if event.event_type == "STATE_EXPIRE":
+            state_id = event.ability.parent_name
+            # if the state was refreshed or frozen, ignore this old expiration event
+            still_active = (
+                len(active_states.get(state_id, [])) > 0
+                or len(char_states[event.character.name].get(state_id, [])) > 0
+            )
+            if not still_active:
+                apply_state_triggers(event.character, ["STATE_EXPIRE", state_id], event.timestamp)
+            continue
 
         if event.event_type == "CAST":
+            if on_field_character is not None and on_field_character != event.character:
+                apply_state_triggers(on_field_character, ["SWAP_OUT"], event.timestamp)
             on_field_character = event.character
 
-        for state in all_state_rules:
-
-            if state.character_source == event.character.name and all(
-                    tag in event_tags for tag in state.trigger_tags) and all(
-                    len(active_states.get(req, [])) > 0 for req in state.required_states):
-                expire_time = event.timestamp + state.base_duration
-                timers = active_states.setdefault(state.state_id, [])
-
-                if state.refresh_mode == "REFRESH ALL":
-                    if len(timers) < state.max_stacks:
-                        active_states[state.state_id].append(expire_time)
-                    active_states[state.state_id] = [expire_time] * len(timers)
-
-                elif state.refresh_mode == "INDEPENDENT":
-                    active_states[state.state_id].append(expire_time)
-                    if len(timers) > state.max_stacks:
-                        active_states[state.state_id].pop(0)
+        apply_state_triggers(event.character, event_tags, event.timestamp)
 
         lunar_domain_enhanced = has_lunar_domain_a4 and len(active_states.get("Lunar Domain", [])) > 0
 
         triggered_reactions: list[tuple[str, str | None]] = []
 
         if event.event_type == "HIT":
+            if event.ability.required_states and not check_required_states(event.ability.required_states, active_states, char_states[event.character.name]):
+                continue
             update_auras(enemy, event.timestamp)
 
             applies_element = check_icd(icd_tracker, event)
@@ -487,7 +640,7 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                             ec_owner = event.character
                             if next_ec_time is None:
                                 triggered_reactions.append(("Electro-Charged", "Electro"))
-                                next_ec_time = process_ec_tick(enemy, events, event.timestamp, ec_owner)
+                                next_ec_time = process_ec_tick(enemy, events, event.timestamp, ec_owner, seq= next(seq_counter))
                             break
 
                         if reaction == "Burning":
@@ -496,7 +649,7 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                             enemy.auras["Burning"] = [2.0, 0.0]
                             burning_owner = event.character
                             if next_burning_time is None:
-                                next_burning_time = process_burning_tick(enemy, events, event.timestamp, burning_owner)
+                                next_burning_time = process_burning_tick(enemy, events, event.timestamp, burning_owner, seq= next(seq_counter))
                             break
 
                         decrement_aura(enemy, aura_elm, event.ability.gauge_units * tax)
@@ -506,7 +659,7 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                                 vd_window_end = event.timestamp + 2.5
                                 if next_vd_time is None:
                                     next_vd_time = event.timestamp + 2.5
-                                    heapq.heappush(events, SimEvent(next_vd_time, "VERDANT_DEW", event.character, make_rxn_ability("Lunar-Bloom", "Dendro")))
+                                    heapq.heappush(events, SimEvent(next_vd_time, "VERDANT_DEW", event.character, make_rxn_ability("Lunar-Bloom", "Dendro"),seq= next(seq_counter)))
 
                                 if lunar_domain_enhanced:
                                     if event.timestamp >= moonridge_window_end:
@@ -519,16 +672,15 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                             core = DendroCore(creator = event.character)
                             dendro_cores.append(core)
                             bloom_ability = make_rxn_ability("Bloom", "Dendro")
-                            heapq.heappush(events, SimEvent(event.timestamp + 6.0, "CORE_EXPIRE", event.character, bloom_ability, core=core))
+                            heapq.heappush(events, SimEvent(event.timestamp + 6.0, "CORE_EXPIRE", event.character, bloom_ability, core=core,seq= next(seq_counter)))
 
                             if len(dendro_cores) > 5:
                                 overflow = dendro_cores.pop(0)
                                 overflow.active = False
-                                heapq.heappush(events, SimEvent(event.timestamp, "CORE_EXPIRE", overflow.creator, bloom_ability))
+                                heapq.heappush(events, SimEvent(event.timestamp, "CORE_EXPIRE", overflow.creator, bloom_ability, seq= next(seq_counter)))
                             break
 
                         if reaction == "Stellar-Conduct":
-                            active_states["Radiance: Stellar-Conduct"] = [event.timestamp + 8.0]
                             if event.timestamp >= polestar_expire:
                                 polestar_record_end = event.timestamp + 4.0
                                 polestar_recorded_hits = 0
@@ -540,10 +692,11 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                                     polestar_active_stacks = 0
 
                             polestar_expire = event.timestamp + 6.0
+                            active_states["Radiance: Stellar-Conduct"] = [polestar_expire]
                             break
 
                         if reaction == "Stellar Swirl":
-                            active_states["Radiance: Stellar Swirl"] = [event.timestamp + 8.0]
+                            active_states["Radiance: Stellar Swirl"] = [event.timestamp + 7.0]
                             hit_contributors = {event.character.name: event.character}
                             if "Cryo" in aura_owners:
                                 hit_contributors[aura_owners["Cryo"].name] = aura_owners["Cryo"]
@@ -558,7 +711,7 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                                     last_vortex_upgrade_time = event.timestamp
                                 active_vortex = StellarVortex(triggers=1, contributors=dict(hit_contributors), is_lv2=is_lv2)
                                 vortex_ability = make_rxn_ability("Stellar Swirl", "Cryo")
-                                heapq.heappush(events, SimEvent(event.timestamp + 3.0, "VORTEX_EXPLODE", event.character, vortex_ability, vortex= active_vortex))
+                                heapq.heappush(events, SimEvent(event.timestamp + 3.0, "VORTEX_EXPLODE", event.character, vortex_ability, vortex= active_vortex, seq= next(seq_counter)))
                             else:
                                 active_vortex.triggers += 1
                                 active_vortex.contributors.update(hit_contributors)
@@ -581,7 +734,7 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                             thundercloud_expire = event.timestamp + 6.0
                             if next_lc_time is None and (event.timestamp + 2.0) <= thundercloud_expire:
                                 next_lc_time = event.timestamp + 2.0
-                                heapq.heappush(events, SimEvent(next_lc_time, "REACTION_TICK", lc_owner, make_rxn_ability("Lunar-Charged", "Electro")))
+                                heapq.heappush(events, SimEvent(next_lc_time, "REACTION_TICK", lc_owner, make_rxn_ability("Lunar-Charged", "Electro"), seq= next(seq_counter)))
                             break
 
                         if reaction == "Lunar-Crystallize":
@@ -639,7 +792,7 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                     dew_timers.append(float("inf"))
                 if event.timestamp < vd_window_end:
                     next_vd_time = event.timestamp + 2.5
-                    heapq.heappush(events, SimEvent(next_vd_time, "VERDANT_DEW", event.character, event.ability))
+                    heapq.heappush(events, SimEvent(next_vd_time, "VERDANT_DEW", event.character, event.ability, seq= next(seq_counter)))
                 else:
                     next_vd_time = None
             continue
@@ -649,32 +802,55 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
 
             buffs_by_char: dict[str, list[entities.BuffRule]] = {char.name: [] for char in team}
 
-            for order in (0, 1, 2, 3):
+            for order in (0,1,2,3):
                 for buff in all_buff_rules:
-                    if buff.scaling_order == order and (
-                            all(len(active_states.get(state, [])) >= buff.min_stacks for state in
-                                buff.required_states)):
-                        copied_buff = copy.copy(buff)
-                        if order != 0:
-                            scaling_val = team_stats[buff.character_source].get(buff.scaling_stat, 0.0)
-                            buff_val = scaling_val * buff.base_value
-                            if buff.scale_with_stacks and buff.required_states:
-                                buff_val *= len(active_states.get(buff.required_states[0], []))
-                            if buff.max_value > 0:
-                                buff_val = min(buff_val, buff.max_value)
-                            copied_buff.base_value = buff_val
+                    if buff.scaling_order != order:
+                        continue
 
-                        if buff.scale_with_stacks and buff.required_states and order == 0:
-                            copied_buff.base_value *= len(active_states.get(buff.required_states[0], []))
-                        for char in team:
-                            if buff.target_scope == "TEAM" or (
-                                    buff.target_scope == "SELF" and buff.character_source == char.name) or (
-                                    buff.target_scope == "ON_FIELD" and on_field_character.name == char.name):
-                                if not buff.ability_filters and not buff.element_filters:
-                                    team_stats[char.name][buff.stat] = (team_stats[char.name].get(copied_buff.stat,0.0)
-                                                                        + copied_buff.base_value)
-                                buffs_by_char[char.name].append(copied_buff)
-                for c, stats in team_stats.items(): recalc_total(stats)
+                    eligible_chars = [
+                        char for char in team
+                        if (
+                            buff.target_scope == "TEAM"
+                            or (buff.target_scope == "SELF" and buff.character_source == char.name)
+                            or (buff.target_scope == "ON_FIELD" and on_field_character.name == char.name)
+                        )
+                        and check_required_states(buff.required_states, active_states, char_states[char.name], char_states)
+                        and (not buff.char_element_filters or char.element in buff.char_element_filters)
+                        and (not buff.exclude_char_elements or char.element not in buff.exclude_char_elements)
+                    ]
+                    if not eligible_chars:
+                        continue
+
+                    copied_buff = copy.copy(buff)
+                    stack_count = 1
+                    if buff.scale_with_stacks and buff.required_states:
+                        raw_state = next((s for s in buff.required_states if not s.startswith("!")), None)
+                        if raw_state:
+                            stack_state = raw_state[4:] if raw_state.startswith("ANY:") else raw_state
+                            stack_count = len(active_states.get(stack_state, [])) + sum(
+                                len(char_states[c.name].get(stack_state, [])) for c in team
+                            )
+
+                    if order != 0:
+                        scaling_val = team_stats[buff.character_source].get(buff.scaling_stat, 0.0)
+                        buff_val = scaling_val * buff.base_value * stack_count
+                        if buff.max_value > 0:
+                            buff_val = min(buff_val, buff.max_value)
+                        copied_buff.base_value = buff_val
+                    else:
+                        copied_buff.base_value *= stack_count
+
+                    if buff.party_count_rule == "DIVIDE_BY_RECIPIENTS":
+                        copied_buff.base_value /= len(eligible_chars)
+
+                    for char in eligible_chars:
+                        if not buff.ability_filters and not buff.element_filters:
+                            team_stats[char.name][copied_buff.stat] = (
+                                    team_stats[char.name].get(copied_buff.stat, 0.0) + copied_buff.base_value
+                            )
+                        buffs_by_char[char.name].append(copied_buff)
+                for c, stats in team_stats.items():
+                    recalc_total(stats)
 
             if event.timestamp < polestar_expire:
                 polestar_buffs = [
@@ -769,7 +945,7 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                     damage_by_char[lc_owner.name] += strike_mult * calculate_reaction_ls_damage(
                         contributors, "Electro", enemy,"Lunar-Charged", 1.8
                     )
-                    next_lc_time = process_lc_tick(enemy, events, event.timestamp, thundercloud_expire, lc_owner)
+                    next_lc_time = process_lc_tick(enemy, events, event.timestamp, thundercloud_expire, lc_owner, seq= next(seq_counter))
                 else:
                     owner = (
                         ec_owner if rxn_name == "Electro-Charged"
@@ -778,9 +954,9 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                     )
                     damage_by_char[owner.name] += calculate_hit_damage(owner, event.ability, enemy, buffs_by_char[owner.name], rxn_name)
                     if rxn_name == "Electro-Charged":
-                        next_ec_time = process_ec_tick(enemy, events, event.timestamp, ec_owner)
+                        next_ec_time = process_ec_tick(enemy, events, event.timestamp, ec_owner, seq= next(seq_counter))
                     elif rxn_name == "Burning":
-                        next_burning_time = process_burning_tick(enemy, events, event.timestamp, burning_owner)
+                        next_burning_time = process_burning_tick(enemy, events, event.timestamp, burning_owner, seq= next(seq_counter))
 
             elif event.event_type == "VORTEX_EXPLODE":
                 detonate_vortex(event.vortex, enemy, buffs_by_char, damage_by_char)

@@ -51,6 +51,7 @@ class Character:
     state_rules: list[StateRule] = field(default_factory=list)
     buff_rules: list[BuffRule] = field(default_factory=list)
     reaction_override: dict[str, str] = field(default_factory=dict)
+    # Convert these 4 into permanent states
     polestar_bonus_stacks: int = 0
     polestar_instant_buff: bool = False
     instant_lv2_vortex: bool = False

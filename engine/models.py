@@ -68,6 +68,9 @@ class StateRule:
     max_stacks: int = 1
     refresh_mode: str = "REFRESH ALL"
     tick_interval: float = 0.0
+    target_scope: str = "GLOBAL" # "GLOBAL", "SELF", "TEAM", "OTHER_TEAMMATES"
+    trigger_scope: str = "SELF"  # "SELF", "TEAM", "OTHER_TEAMMATES"
+    triggered_ability: Ability | None = None
 
 
 @dataclass
@@ -93,6 +96,8 @@ class BuffRule:
     party_count_rule: str = "NONE"
     ability_filters: list[str] = field(default_factory=list)
     element_filters: list[str] = field(default_factory=list)
+    char_element_filters: list[str] = field(default_factory=list)
+    exclude_char_elements: list[str] = field(default_factory=list)
 
 # --- Functions ---
 
