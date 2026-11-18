@@ -49,6 +49,7 @@ class Ability:
     icd_group: str = "DEFAULT"
     icd_time: float = 2.5
     icd_hits: int = 3
+    is_blunt: bool = False
 
 
 @dataclass

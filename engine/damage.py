@@ -32,6 +32,7 @@ transformative_coefficients = {
     "Bloom": 2.0,
     "Hyperbloom": 3.0,
     "Burgeon": 3.0,
+    "Burning": 0.25,
 }
 
 level_multipliers = {
