@@ -479,25 +479,40 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
 
     char_states: dict[str, dict[str, list[float]]] = {char.name: {} for char in team}
     char_by_name: dict[str, entities.Character] = {char.name: char for char in team}
+    paused_states: dict[str, dict[str, list[float]]] = {char.name: {} for char in team}
+    paused_state_ids: set[str] = {s.state_id for s in all_state_rules if s.pause_off_field}
+    state_trigger_last_time: dict[tuple[str, str], float] = {}
+
+    def effective_char_states(cname: str) -> dict[str, list[float]]:
+        merged = {k: list(v) for k, v in char_states[cname].items()}
+        for k, v in paused_states[cname].items():
+            if v:
+                merged.setdefault(k, []).extend(v)
+        return merged
 
     def schedule_state_expire(expire_time: float, owner: entities.Character, state_id: str):
         heapq.heappush(events, SimEvent(expire_time, "STATE_EXPIRE", owner, make_rxn_ability(state_id, "Physical"), seq= next(seq_counter)))
 
     def apply_state_triggers(trigger_char: entities.Character, tags: list[str], timestamp: float):
-        pre_global = {k:list(v) for k,v in active_states.items()}
-        pre_personal = {k:list(v) for k, v in char_states[trigger_char.name].items()}
+        pre_global = {k: list(v) for k, v in active_states.items()}
+        pre_all_personal = {c.name: effective_char_states(c.name) for c in team}
+        pre_personal = pre_all_personal[trigger_char.name]
         for state in all_state_rules:
             scope_ok = (
-            (state.trigger_scope == "SELF" and trigger_char.name == state.character_source)
-            or (state.trigger_scope == "OTHER_TEAMMATES" and trigger_char.name != state.character_source)
-            or (state.trigger_scope == "TEAM")
+                    (state.trigger_scope == "SELF" and trigger_char.name == state.character_source)
+                    or (state.trigger_scope == "OTHER_TEAMMATES" and trigger_char.name != state.character_source)
+                    or (state.trigger_scope == "TEAM")
             )
             if not scope_ok or not all(tag in tags for tag in state.trigger_tags):
                 continue
-            if not check_required_states(state.required_states, pre_global, pre_personal):
+            if not check_required_states(state.required_states, pre_global, pre_personal, pre_all_personal):
                 continue
-
-            expire_time = timestamp + state.base_duration
+            if state.trigger_icd > 0:
+                icd_key = (state.character_source, state.state_id)
+                if icd_key in state_trigger_last_time and (
+                        timestamp - state_trigger_last_time[icd_key]) < state.trigger_icd - 1e-9:
+                    continue
+                state_trigger_last_time[icd_key] = timestamp
 
             if state.target_scope == "GLOBAL":
                 targets = [(active_states, char_by_name[state.character_source])]
@@ -508,34 +523,78 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                 ]
 
             for bucket, owner in targets:
+                at_stack_cap = False
+                is_paused_target = (
+                        state.pause_off_field
+                        and state.target_scope != "GLOBAL"
+                        and (on_field_character is None or on_field_character.name != owner.name)
+                )
+
                 if state.base_duration > 0:
-                    timers = bucket.setdefault(state.state_id, [])
-                    if state.refresh_mode == "REFRESH ALL":
-                        if len(timers) < state.max_stacks:
+                    if is_paused_target:
+                        p_timers = paused_states[owner.name].setdefault(state.state_id, [])
+                        if state.refresh_mode == "REFRESH ALL":
+                            if len(p_timers) < state.max_stacks:
+                                p_timers.append(state.base_duration)
+                            paused_states[owner.name][state.state_id] = [state.base_duration] * len(p_timers)
+                        elif state.refresh_mode == "INDEPENDENT":
+                            if len(p_timers) >= state.max_stacks:
+                                at_stack_cap = True
+                            p_timers.append(state.base_duration)
+                            if len(p_timers) > state.max_stacks:
+                                p_timers.pop(0)
+                        elif state.refresh_mode == "SEQUENTIAL":
+                            if len(p_timers) < state.max_stacks:
+                                p_timers.append((p_timers[-1] if p_timers else 0.0) + state.base_duration)
+                            else:
+                                at_stack_cap = True
+                    else:
+                        expire_time = timestamp + state.base_duration
+                        timers = bucket.setdefault(state.state_id, [])
+                        if state.refresh_mode == "REFRESH ALL":
+                            if len(timers) < state.max_stacks:
+                                timers.append(expire_time)
+                            bucket[state.state_id] = [expire_time] * len(timers)
+                            schedule_state_expire(expire_time, owner, state.state_id)
+                        elif state.refresh_mode == "INDEPENDENT":
+                            if len(timers) >= state.max_stacks:
+                                at_stack_cap = True
                             timers.append(expire_time)
-                        bucket[state.state_id] = [expire_time] * len(timers)
-                    elif state.refresh_mode == "INDEPENDENT":
-                        timers.append(expire_time)
-                        if len(timers) > state.max_stacks:
-                            timers.pop(0)
-                    schedule_state_expire(expire_time, owner, state.state_id)
+                            if len(timers) > state.max_stacks:
+                                timers.pop(0)
+                            schedule_state_expire(expire_time, owner, state.state_id)
+                        elif state.refresh_mode == "SEQUENTIAL":
+                            if len(timers) < state.max_stacks:
+                                seq_expire = (timers[-1] if timers else timestamp) + state.base_duration
+                                timers.append(seq_expire)
+                                schedule_state_expire(seq_expire, owner, state.state_id)
+                            else:
+                                at_stack_cap = True
 
                 for term_id in state.termination_rules:
                     bucket.pop(term_id, None)
+                    if state.target_scope != "GLOBAL":
+                        paused_states[owner.name].pop(term_id, None)
 
-                for freeze_id in state.freeze_state:
-                    if freeze_id in bucket:
-                        bucket[freeze_id] = [t + state.base_duration for t in bucket[freeze_id] if t > timestamp]
-                        for new_t in bucket[freeze_id]:
-                            schedule_state_expire(new_t, owner, freeze_id)
+                if not at_stack_cap:
+                    ext = state.extend_duration if state.extend_duration > 0 else state.base_duration
+                    for freeze_id in state.freeze_state:
+                        if freeze_id in bucket:
+                            bucket[freeze_id] = [t + ext for t in bucket[freeze_id] if t > timestamp]
+                            for new_t in bucket[freeze_id]:
+                                schedule_state_expire(new_t, owner, freeze_id)
+                        if state.target_scope != "GLOBAL" and freeze_id in paused_states[owner.name]:
+                            paused_states[owner.name][freeze_id] = [r + ext for r in paused_states[owner.name][freeze_id] if r > 0]
 
             if state.triggered_ability is not None:
                 source_char = char_by_name[state.character_source]
                 for offset in state.triggered_ability.hit_offsets:
-                    heapq.heappush(events, SimEvent(timestamp + offset, "HIT", source_char, state.triggered_ability,seq=next(seq_counter)))
+                    heapq.heappush(events, SimEvent(timestamp + offset, "HIT", source_char, state.triggered_ability,
+                                                    seq=next(seq_counter)))
                 for sub in state.triggered_ability.sub_abilities:
                     for offset in sub.hit_offsets:
-                        heapq.heappush(events,SimEvent(timestamp + offset, "HIT", source_char, sub, seq=next(seq_counter)))
+                        heapq.heappush(events,
+                                       SimEvent(timestamp + offset, "HIT", source_char, sub, seq=next(seq_counter)))
 
 
 
@@ -577,6 +636,7 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
             still_active = (
                 len(active_states.get(state_id, [])) > 0
                 or len(char_states[event.character.name].get(state_id, [])) > 0
+                or len(paused_states[event.character.name].get(state_id, [])) > 0
             )
             if not still_active:
                 apply_state_triggers(event.character, ["STATE_EXPIRE", state_id], event.timestamp)
@@ -584,7 +644,20 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
 
         if event.event_type == "CAST":
             if on_field_character is not None and on_field_character != event.character:
+                for sid in list(char_states[on_field_character.name].keys()):
+                    if sid in paused_state_ids:
+                        rem = [t - event.timestamp for t in char_states[on_field_character.name].pop(sid) if
+                               t > event.timestamp]
+                        if rem:
+                            paused_states[on_field_character.name][sid] = rem
                 apply_state_triggers(on_field_character, ["SWAP_OUT"], event.timestamp)
+                for sid, rem in list(paused_states[event.character.name].items()):
+                    if rem:
+                        resumed = [event.timestamp + r for r in rem if r > 0]
+                        char_states[event.character.name][sid] = resumed
+                        for exp_t in resumed:
+                            schedule_state_expire(exp_t, event.character, sid)
+                paused_states[event.character.name].clear()
             on_field_character = event.character
 
         apply_state_triggers(event.character, event_tags, event.timestamp)
@@ -594,7 +667,10 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
         triggered_reactions: list[tuple[str, str | None]] = []
 
         if event.event_type == "HIT":
-            if event.ability.required_states and not check_required_states(event.ability.required_states, active_states, char_states[event.character.name]):
+            all_eff_states = {c.name: effective_char_states(c.name) for c in team}
+            if event.ability.required_states and not check_required_states(
+                    event.ability.required_states, active_states, all_eff_states[event.character.name], all_eff_states
+            ):
                 continue
             update_auras(enemy, event.timestamp)
 
@@ -693,6 +769,7 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
 
                             polestar_expire = event.timestamp + 6.0
                             active_states["Radiance: Stellar-Conduct"] = [polestar_expire]
+                            apply_state_triggers(event.character, ["REACTION", reaction, "Stellar", "Stellar Glimmer"], event.timestamp)
                             break
 
                         if reaction == "Stellar Swirl":
@@ -703,6 +780,7 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
 
                             triggered_reactions.append(("Stellar Swirl", "Anemo"))
                             stellar_swirl_contributors = hit_contributors
+                            apply_state_triggers(event.character, ["REACTION", reaction, "Stellar", "Stellar Glimmer"], event.timestamp)
 
                             if active_vortex is None:
                                 is_lv2 = False
@@ -799,6 +877,7 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
 
         if event.event_type in ("HIT", "REACTION_TICK", "CORE_EXPIRE", "VORTEX_EXPLODE"):
             team_stats = {char.name: char.out_of_combat_stats() for char in team}
+            all_eff_states = {c.name: effective_char_states(c.name) for c in team}
 
             buffs_by_char: dict[str, list[entities.BuffRule]] = {char.name: [] for char in team}
 
@@ -814,9 +893,9 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                             or (buff.target_scope == "SELF" and buff.character_source == char.name)
                             or (buff.target_scope == "ON_FIELD" and on_field_character.name == char.name)
                         )
-                        and check_required_states(buff.required_states, active_states, char_states[char.name], char_states)
                         and (not buff.char_element_filters or char.element in buff.char_element_filters)
                         and (not buff.exclude_char_elements or char.element not in buff.exclude_char_elements)
+                        and check_required_states(buff.required_states, active_states, all_eff_states[char.name], all_eff_states)
                     ]
                     if not eligible_chars:
                         continue
@@ -828,7 +907,7 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                         if raw_state:
                             stack_state = raw_state[4:] if raw_state.startswith("ANY:") else raw_state
                             stack_count = len(active_states.get(stack_state, [])) + sum(
-                                len(char_states[c.name].get(stack_state, [])) for c in team
+                                len(all_eff_states[c.name].get(stack_state, [])) for c in team
                             )
 
                     if order != 0:

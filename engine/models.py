@@ -63,11 +63,14 @@ class StateRule:
     trigger_tags: list[str] = field(default_factory=list)
     required_states: list[str] = field(default_factory=list)
     freeze_state: list[str] = field(default_factory=list)
+    extend_duration: float = 0.0
     termination_rules: list[str] = field(default_factory=list)
     termination_events: list[str] = field(default_factory=list)
     max_stacks: int = 1
-    refresh_mode: str = "REFRESH ALL"
+    refresh_mode: str = "REFRESH ALL" # "REFRESH ALL", "INDEPENDENT", "SEQUENTIAL"
     tick_interval: float = 0.0
+    trigger_icd: float = 0.0
+    pause_off_field: bool = False
     target_scope: str = "GLOBAL" # "GLOBAL", "SELF", "TEAM", "OTHER_TEAMMATES"
     trigger_scope: str = "SELF"  # "SELF", "TEAM", "OTHER_TEAMMATES"
     triggered_ability: Ability | None = None
