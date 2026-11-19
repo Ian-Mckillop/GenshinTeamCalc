@@ -43,6 +43,7 @@ class Character:
     base_atk: float
     base_def: float
     weapon: Weapon
+    weapon_type: str = ""
     lvl: int = 90
     artifact_set: list[ArtifactSet] = field(default_factory=list)
     ascension_stat: dict[str, float] = field(default_factory=dict)
@@ -59,6 +60,9 @@ class Character:
 
 
     def __post_init__(self):
+        if not self.weapon_type:
+            self.weapon_type = self.weapon.type
+
         # A lvl 100 Character has ~7.1% more Base HP and DEF, and ~22.5% more Base ATK then a lvl 90 Character.
         if self.lvl == 100:
             self.base_hp = self.base_hp * 1.071

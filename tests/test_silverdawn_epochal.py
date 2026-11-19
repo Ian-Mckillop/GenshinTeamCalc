@@ -20,11 +20,12 @@ class TestSilverdawnAndEpochalAdvent(unittest.TestCase):
         )
 
     def test_silverdawn_extension_and_buffs(self):
-        # 330 + 674 = 1004 Base ATK; 50% + 38.4% + 44.1% = 132.5% base Crit DMG
-        # Active buffs: +40% ATK (Silverdawn) + 18% ATK (2pc Epochal) = 1586.32 ATK
+        # 356 + 674 = 1030 Base ATK; 50% + 38.4% + 44.1% = 132.5% base Crit DMG
+        # Active buffs: +40% ATK (Silverdawn) + 18% ATK (2pc Epochal) = 1627.4 ATK
         # Stellar Glimmer Crit DMG: 132.5% + 12% (Accolades) + 40% (Silverdawn) = 184.5% (2.845x)
         # Cryo Stellar Glimmer Crit Rate: 5% + 55% + 40% (4pc Epochal) = 100%
         ana, ab = build_anastasya(
+            0,
             build_silverdawn(),
             artifact_set=[build_epochal_advent()],
             artifact_stats={"Crit Rate": 0.55},
@@ -39,18 +40,19 @@ class TestSilverdawnAndEpochalAdvent(unittest.TestCase):
         wait_tm = models.Ability("Wait", "Wait", 0.0, element="Electro", gauge_units=0.0, cast_duration=8.0)
 
         res = simulator.simulate_rotation(team, entities.Enemy(lvl=90), [
-            simulator.RotationStep(ana, ab["Skill_Hold"]), # t=0.0, hit at 0.25 (ATK = 1586.32, Cryo CR = 80%, CD = 144.5%)
+            simulator.RotationStep(ana, ab["Skill_Hold"]), # t=0.0, hit at 0.25 (ATK = 1627.4, Cryo CR = 80%, CD = 144.5%)
             simulator.RotationStep(ana, late_sc),          # t=0.65 -> hits at 4.15s & 8.15s
             simulator.RotationStep(self.tm_electro, wait_tm),
         ])
 
-        expected_hold = 1586.32 * 2.837 * (1 + 0.80 * 1.445) * 0.5 * 0.9
-        expected_late_sc = 1586.32 * 1.0 * (1 + 0.00007 * 1586.32) * 2.845 * 0.9
+        expected_hold = 1627.4 * 2.837 * (1 + 0.80 * 1.445) * 0.5 * 0.9
+        expected_late_sc = 1627.4 * 1.0 * (1 + 0.00007 * 1627.4) * 2.845 * 0.9
         self.assertAlmostEqual(res["Anastasya"], expected_hold + 2 * expected_late_sc, places=3)
 
     def test_epochal_advent_on_field_decay_vs_off_field_persistence(self):
         ana, ab = build_anastasya(
-            entities.Weapon("FlatBow", "Bow", 670.0), # 1000 Base ATK
+            0,
+            entities.Weapon("FlatBow", "Bow", 644.0), # 1000 Base ATK
             artifact_set=[build_epochal_advent()],
             artifact_stats={"Crit Rate": 0.55, "Crit Damage": -0.384}, # 60% base CR -> 100% on Stellar with Starspark, 60% without
         )

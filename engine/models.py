@@ -66,11 +66,14 @@ class StateRule:
     extend_duration: float = 0.0
     termination_rules: list[str] = field(default_factory=list)
     termination_events: list[str] = field(default_factory=list)
+    consume_stacks: dict[str, int] = field(default_factory=dict)
+    stacks: int = 1
     max_stacks: int = 1
     refresh_mode: str = "REFRESH ALL" # "REFRESH ALL", "INDEPENDENT", "SEQUENTIAL"
     tick_interval: float = 0.0
     trigger_icd: float = 0.0
     pause_off_field: bool = False
+    trigger_phase: str = "PRE" # "PRE", "POST
     target_scope: str = "GLOBAL" # "GLOBAL", "SELF", "TEAM", "OTHER_TEAMMATES"
     trigger_scope: str = "SELF"  # "SELF", "TEAM", "OTHER_TEAMMATES"
     triggered_ability: Ability | None = None
@@ -91,6 +94,7 @@ class BuffRule:
     scale_with_stacks: bool = False
     buff_group: str = "NONE"
     scaling_stat: str = "NONE"
+    scaling_offset: float = 0.0
     max_value: float = 0.0
     scaling_order: int = 0
     duration_mode: str = "STATE_BOUND"

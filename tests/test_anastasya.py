@@ -8,10 +8,11 @@ from data.characters.anastasya import build_anastasya
 
 class TestAnastasyaC0(unittest.TestCase):
     def setUp(self):
-        # 1000 Total Base ATK (330 + 670), 100% Crit Rate, 50% base Crit DMG (canceling 38.4% ascension)
-        self.weapon = entities.Weapon("TestBow", "Bow", 670.0)
+        # 1000 Total Base ATK (356 + 644), 100% Crit Rate, 50% base Crit DMG (canceling 38.4% ascension)
+        self.weapon = entities.Weapon("TestBow", "Bow", 644.0)
         self.ana, self.ab = build_anastasya(
-            self.weapon,
+            constellation=0,
+            weapon=self.weapon,
             artifact_stats={"Crit Rate": 0.95, "Crit Damage": -0.384},
         )
         self.tm_electro = entities.Character(
@@ -30,6 +31,12 @@ class TestAnastasyaC0(unittest.TestCase):
         self.probe = models.Ability("Probe", "Probe", 1.0, element="Physical", gauge_units=0.0, hit_offsets=[0.0], cast_duration=0.1)
         self.idle_6_5 = models.Ability("Idle", "Idle", 0.0, element="Physical", gauge_units=0.0, cast_duration=6.5)
         self.idle_45 = models.Ability("Idle", "Idle", 0.0, element="Physical", gauge_units=0.0, cast_duration=45.0)
+
+    def test_character_metadata_and_default_weapon(self):
+        default_ana, _ = build_anastasya()
+        self.assertEqual(default_ana.weapon_type, "Bow")
+        self.assertEqual(default_ana.weapon.type, "Bow")
+        self.assertEqual(default_ana.base_atk, 356.0)
 
     def test_accolades_love_burst_redistribution_and_triumph(self):
         # 1. Normal Accolades after Skill: 50% + 12% = 62% CD -> 1000 * 1.62 * 0.5 * 0.9 = 729.0
@@ -137,9 +144,10 @@ class TestAnastasyaC0(unittest.TestCase):
         )
         self.assertAlmostEqual(res_ss["Anastasya"], expected_ss, places=4)
 
+
 class TestAnastasyaConstellations(unittest.TestCase):
     def setUp(self):
-        self.weapon = entities.Weapon("TestBow", "Bow", 670.0)
+        self.weapon = entities.Weapon("TestBow", "Bow", 644.0)
         self.tm_cryo = entities.Character(
             "TM_Cryo", "Cryo", 0, 10000, 1000, 500, entities.Weapon("W", "Sword", 0),
             artifact_stats={"Crit Rate": 0.95, "Crit Damage": 0.0},
@@ -157,7 +165,9 @@ class TestAnastasyaConstellations(unittest.TestCase):
 
     def test_c1_and_c4_accolades_scaling(self):
         ana_c4, ab_c4 = build_anastasya(
-            self.weapon, constellation=4, artifact_stats={"Crit Rate": 0.95, "Crit Damage": -0.384}
+            constellation=4,
+            weapon=self.weapon,
+            artifact_stats={"Crit Rate": 0.95, "Crit Damage": -0.384},
         )
         team = [ana_c4, self.tm_cryo, self.tm_electro, self.tm_anemo]
 
@@ -173,7 +183,9 @@ class TestAnastasyaConstellations(unittest.TestCase):
 
     def test_c2_love_and_honor_buffs(self):
         ana_c2, ab_c2 = build_anastasya(
-            self.weapon, constellation=2, artifact_stats={"Crit Rate": 0.95, "Crit Damage": -0.384}
+            constellation=2,
+            weapon=self.weapon,
+            artifact_stats={"Crit Rate": 0.95, "Crit Damage": -0.384},
         )
         team = [ana_c2, self.tm_cryo, self.tm_electro, self.tm_anemo]
 
@@ -183,7 +195,7 @@ class TestAnastasyaConstellations(unittest.TestCase):
             simulator.RotationStep(self.tm_cryo, self.probe_sc),
         ])
         # C2 Love: +60% Stellar Glimmer Crit DMG + Accolades (12% CD, 15% ATK -> 1150 ATK) + P3 (+8.05% Reaction Base DMG%)
-        expected_tm_cryo = 1150.0 * 1.0 * (1 + 0.00007 * 1150.0) * 2.22 * 0.9
+        expected_tm_cryo = 1150 * 1.0 * (1 + 0.00007 * 1150.0) * 2.22 * 0.9
         self.assertAlmostEqual(res_love["TM_Cryo"], expected_tm_cryo, places=4)
 
         # C2 Honor: 1.25x Original DMG Mult on Spear_N1 + 5% Stellar Glimmer Elevation
@@ -191,15 +203,19 @@ class TestAnastasyaConstellations(unittest.TestCase):
             simulator.RotationStep(ana_c2, ab_c2["Skill_Hold"]),
             simulator.RotationStep(ana_c2, ab_c2["Spear_N1"]),
         ])
-        expected_ana = 1150.0 * (2.837 + 1.129 * 1.25) * 1.62 * 0.5 * 0.9
+        expected_ana = 1150 * (2.837 + 1.129 * 1.25) * 1.62 * 0.5 * 0.9
         self.assertAlmostEqual(res_honor["Anastasya"], expected_ana, places=4)
 
     def test_c6_auto_triumph_and_doom(self):
         ana_c5, ab_c5 = build_anastasya(
-            self.weapon, constellation=5, artifact_stats={"Crit Rate": 0.95, "Crit Damage": -0.384}
+            constellation=5,
+            weapon=self.weapon,
+            artifact_stats={"Crit Rate": 0.95, "Crit Damage": -0.384},
         )
         ana_c6, ab_c6 = build_anastasya(
-            self.weapon, constellation=6, artifact_stats={"Crit Rate": 0.95, "Crit Damage": -0.384}
+            constellation=6,
+            weapon=self.weapon,
+            artifact_stats={"Crit Rate": 0.95, "Crit Damage": -0.384},
         )
 
         # C6 Love: swapping out triggers 250% Triumph + 10% Elevation
