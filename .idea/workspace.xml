@@ -4,17 +4,41 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4e5ef489-6825-4a91-803c-692c257f8570" name="Changes" comment="Added support for Silverdawn, Epochal Advent, as well as tests for their effects.">
-      <change afterPath="$PROJECT_DIR$/data/characters/danica.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/characters/example_character.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/test_danica.py" afterDir="false" />
+    <list default="true" id="4e5ef489-6825-4a91-803c-692c257f8570" name="Changes" comment="Added support for Danica and Odette, as well as a template for future characters.">
+      <change afterPath="$PROJECT_DIR$/data/artifacts/disenchantment_in_deep_shadow.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/artifacts/example_artifactset.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/artifacts/heart_of_the_furnace.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/artifacts/tenacity_of_the_millelith.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/characters/yae_miko.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/weapons/echoes_of_the_heart.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/weapons/example_weapon.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/weapons/jade_vista.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/weapons/silver_light.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/weapons/torrents_of_spring.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/weapons/ultimate_overlords_mega_magic_sword.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/engine/resonances.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run_rotation.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/artifacts/test_epochal_advent.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/artifacts/test_tenacity_of_the_millelith.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/characters/test_anastasya.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/characters/test_yae_miko.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/miscellaneous/test_silver_light_and_furnace.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/miscellaneous/tests_echoes_and_disenchantment.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/weapons/test_torrents_of_spring.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/artifacts/epochal_advent.py" beforeDir="false" afterPath="$PROJECT_DIR$/data/artifacts/epochal_advent.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/characters/anastasya.py" beforeDir="false" afterPath="$PROJECT_DIR$/data/characters/anastasya.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/characters/danica.py" beforeDir="false" afterPath="$PROJECT_DIR$/data/characters/danica.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/characters/odette.py" beforeDir="false" afterPath="$PROJECT_DIR$/data/characters/odette.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/engine/damage.py" beforeDir="false" afterPath="$PROJECT_DIR$/engine/damage.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/engine/entities.py" beforeDir="false" afterPath="$PROJECT_DIR$/engine/entities.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/engine/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/engine/models.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/engine/simulator.py" beforeDir="false" afterPath="$PROJECT_DIR$/engine/simulator.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_anastasya.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_anastasya.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_silverdawn_epochal.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_silverdawn_epochal.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/test_anastasya.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/test_danica.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/characters/test_danica.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/test_odette.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/characters/test_odette.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/test_reactions.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/miscellaneous/test_reactions.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/test_silverdawn_epochal.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/miscellaneous/test_silverdawn_epochal.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -59,74 +83,101 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "Python tests.Python tests for test_reactions.TestReactionEngine.executor": "Run",
-    "Python tests.Python tests for test_reactions.TestReactionEngine.test_amplifying_vaporize_and_reverse_melt.executor": "Run",
-    "Python tests.Python tests for test_reactions.TestReactionEngine.test_bloom_overflow_and_hyperbloom.executor": "Run",
-    "Python tests.Python tests for test_reactions.TestReactionEngine.test_electro_charged_and_burning_ticks.executor": "Run",
-    "Python tests.Python tests for test_reactions.TestReactionEngine.test_lunar_reactions_and_columbina_a4.executor": "Run",
-    "Python tests.Python tests for test_reactions.TestReactionEngine.test_quicken_aggravate_and_spread.executor": "Run",
-    "Python tests.Python tests for test_reactions.TestReactionEngine.test_stellar_conduct_and_anastasya_a4.executor": "Run",
-    "Python tests.Python tests for test_reactions.TestReactionEngine.test_stellar_swirl_and_vortex_detonation.executor": "Run",
-    "Python tests.Python tests for test_reactions.TestReactionEngine.test_transformative_overloaded_and_shattered.executor": "Run",
-    "Python tests.Python tests for tests.test_anastasya.TestAnastasyaC0.executor": "Run",
-    "Python tests.Python tests for tests.test_anastasya.TestAnastasyaConstellations.executor": "Run",
-    "Python tests.Python tests for tests.test_danica.TestDanica.executor": "Run",
-    "Python tests.Python tests for tests.test_silverdawn_epochal.TestSilverdawnAndEpochalAdvent.executor": "Run",
-    "Python tests.Python tests for tests.test_silverdawn_epochal.TestSilverdawnAndEpochalAdvent.test_silverdawn_extension_and_buffs.executor": "Run",
-    "Python tests.Python tests in test_anastasya.py.executor": "Run",
-    "Python tests.Python tests in test_danica.py.executor": "Run",
-    "Python tests.Python tests in test_odette.py.executor": "Run",
-    "Python tests.Python tests in test_reactions.py.executor": "Run",
-    "Python tests.Python tests in test_silverdawn_epochal.py.executor": "Run",
-    "Python.damage.executor": "Run",
-    "Python.entities.executor": "Run",
-    "Python.main.executor": "Run",
-    "Python.simulator.executor": "Debug",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "main",
-    "settings.editor.selected.configurable": "preferences.pluginManager"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Python tests.Python tests for test_reactions.TestReactionEngine.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for test_reactions.TestReactionEngine.test_amplifying_vaporize_and_reverse_melt.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for test_reactions.TestReactionEngine.test_bloom_overflow_and_hyperbloom.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for test_reactions.TestReactionEngine.test_electro_charged_and_burning_ticks.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for test_reactions.TestReactionEngine.test_lunar_reactions_and_columbina_a4.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for test_reactions.TestReactionEngine.test_quicken_aggravate_and_spread.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for test_reactions.TestReactionEngine.test_stellar_conduct_and_anastasya_a4.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for test_reactions.TestReactionEngine.test_stellar_swirl_and_vortex_detonation.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for test_reactions.TestReactionEngine.test_transformative_overloaded_and_shattered.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for tests.test_anastasya.TestAnastasyaC0.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for tests.test_anastasya.TestAnastasyaConstellations.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for tests.test_danica.TestDanica.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for tests.test_epochal_advent.TestEpochalAdvent.test_starspark_cap_and_3s_sequential_decay.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for tests.test_silverdawn_epochal.TestSilverdawnAndEpochalAdvent.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for tests.test_silverdawn_epochal.TestSilverdawnAndEpochalAdvent.test_silverdawn_extension_and_buffs.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for tests.test_torrents_of_spring.TestTorrentsOfSpring.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for tests.test_yae_miko.TestYaeMikoC0.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests in test_anastasya.py.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests in test_danica.py.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests in test_epochal_advent.py.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests in test_odette.py.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests in test_reactions.py.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests in test_silver_light_and_furnace.py.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests in test_silverdawn_epochal.py.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests in test_tenacity_of_the_millelith.py.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests in test_torrents_of_spring.py.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests in test_yae_miko.py.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests in tests_echoes_and_disenchantment.py.executor&quot;: &quot;Run&quot;,
+    &quot;Python.damage.executor&quot;: &quot;Run&quot;,
+    &quot;Python.entities.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.run_rotation.executor&quot;: &quot;Run&quot;,
+    &quot;Python.simulator.executor&quot;: &quot;Debug&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.sourceCode&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\drago\Desktop\GenshinTeamCalc\tests\miscellaneous" />
       <recent name="C:\Users\drago\Desktop\GenshinTeamCalc\tests" />
-      <recent name="C:\Users\drago\Desktop\GenshinTeamCalc" />
+      <recent name="C:\Users\drago\Desktop\GenshinTeamCalc\tests\weapons" />
+      <recent name="C:\Users\drago\Desktop\GenshinTeamCalc\tests\characters" />
+      <recent name="C:\Users\drago\Desktop\GenshinTeamCalc\tests\artifacts" />
     </key>
   </component>
-  <component name="RunManager" selected="Python tests.Python tests in test_odette.py">
-    <configuration name="Python tests in test_anastasya.py" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Python.run_rotation">
+    <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="GenshinTeamCalc" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
       <option name="SDK_HOME" value="" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;$PROJECT_DIR$/tests/test_anastasya.py&quot;" />
-      <option name="_new_targetType" value="&quot;PATH&quot;" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/main.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="Python tests in test_danica.py" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+    <configuration name="run_rotation" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="GenshinTeamCalc" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
       <option name="SDK_HOME" value="" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;$PROJECT_DIR$/tests/test_danica.py&quot;" />
-      <option name="_new_targetType" value="&quot;PATH&quot;" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/run_rotation.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
     <configuration name="Python tests in test_odette.py" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
@@ -140,11 +191,11 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;$PROJECT_DIR$/tests/test_odette.py&quot;" />
+      <option name="_new_target" value="&quot;$PROJECT_DIR$/tests/characters/test_odette.py&quot;" />
       <option name="_new_targetType" value="&quot;PATH&quot;" />
       <method v="2" />
     </configuration>
-    <configuration name="Python tests in test_reactions.py" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+    <configuration name="Python tests in test_torrents_of_spring.py" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
       <module name="GenshinTeamCalc" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -155,11 +206,11 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;$PROJECT_DIR$/tests/test_reactions.py&quot;" />
+      <option name="_new_target" value="&quot;$PROJECT_DIR$/tests/weapons/test_torrents_of_spring.py&quot;" />
       <option name="_new_targetType" value="&quot;PATH&quot;" />
       <method v="2" />
     </configuration>
-    <configuration name="Python tests in test_silverdawn_epochal.py" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+    <configuration name="Python tests in test_yae_miko.py" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
       <module name="GenshinTeamCalc" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -170,17 +221,17 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;$PROJECT_DIR$/tests/test_silverdawn_epochal.py&quot;" />
+      <option name="_new_target" value="&quot;$PROJECT_DIR$/tests/characters/test_yae_miko.py&quot;" />
       <option name="_new_targetType" value="&quot;PATH&quot;" />
       <method v="2" />
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.run_rotation" />
+        <item itemvalue="Python.main" />
         <item itemvalue="Python tests.Python tests in test_odette.py" />
-        <item itemvalue="Python tests.Python tests in test_danica.py" />
-        <item itemvalue="Python tests.Python tests in test_reactions.py" />
-        <item itemvalue="Python tests.Python tests in test_silverdawn_epochal.py" />
-        <item itemvalue="Python tests.Python tests in test_anastasya.py" />
+        <item itemvalue="Python tests.Python tests in test_yae_miko.py" />
+        <item itemvalue="Python tests.Python tests in test_torrents_of_spring.py" />
       </list>
     </recent_temporary>
   </component>
@@ -290,7 +341,15 @@
       <option name="project" value="LOCAL" />
       <updated>1794997541318</updated>
     </task>
-    <option name="localTasksCounter" value="12" />
+    <task id="LOCAL-00012" summary="Added support for Danica and Odette, as well as a template for future characters.">
+      <option name="closed" value="true" />
+      <created>1795048336020</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1795048336020</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -315,6 +374,16 @@
     <MESSAGE value="Added support for lunar reactions to the rotation simulator." />
     <MESSAGE value="Added support for the entirety of Anastasya's kit, as well as anastasya.py." />
     <MESSAGE value="Added support for Silverdawn, Epochal Advent, as well as tests for their effects." />
-    <option name="LAST_COMMIT_MESSAGE" value="Added support for Silverdawn, Epochal Advent, as well as tests for their effects." />
+    <MESSAGE value="Added support for Danica and Odette, as well as a template for future characters." />
+    <option name="LAST_COMMIT_MESSAGE" value="Added support for Danica and Odette, as well as a template for future characters." />
+  </component>
+  <component name="XDebuggerManager">
+    <watches-manager>
+      <configuration name="PythonConfigurationType">
+        <watch expression="events" language="Python" />
+        <watch expression="event" language="Python" />
+        <watch expression="buffs_by_char['Danica']" />
+      </configuration>
+    </watches-manager>
   </component>
 </project>

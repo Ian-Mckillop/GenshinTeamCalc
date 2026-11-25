@@ -59,10 +59,11 @@ class TestOdetteC0(unittest.TestCase):
         dance_double_dmg = 2000.0 * (5 * 0.775 + 4 * 0.926) * 1.5 * 0.5 * 0.9
         self.assertAlmostEqual(res_on_field["Odette"] - skill_dmg - dance_double_dmg, expected_odette_probe, places=3)
 
-        # 2. Swap to TM_Electro and wait 2.5s off-field -> 2 stacks transferred to TM_Electro (+30% Reaction DMG%)
+        # 2. Swap to TM_Electro and wait until t = 2.467s (after 2 ticks at 1.0s & 2.0s) -> 2 stacks transferred (+30% Reaction DMG%)
+        idle_1_8 = models.Ability("Idle1.8", "Idle1.8", 0.0, element="Physical", gauge_units=0.0, cast_duration=1.8)
         res_transfer = simulator.simulate_rotation(team, entities.Enemy(lvl=90), [
             simulator.RotationStep(odette_2k, ab_2k["Skill"]),
-            simulator.RotationStep(self.tm_electro, self.idle_2_5),
+            simulator.RotationStep(self.tm_electro, idle_1_8),
             simulator.RotationStep(self.tm_electro, self.probe_sc),
         ])
         # TM_Electro has 1000 ATK, P3 +14% Base DMG%, 2 stacks MS (+30% Reaction DMG%)

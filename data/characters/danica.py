@@ -223,8 +223,9 @@ def build_danica(
         element="Electro",
         attack_type="Elemental Skill",
         tags=["Scouring Anchor"],
-        cast_duration=0.50,
-        hit_offsets=[0.25],
+        icd_group="NONE",
+        cast_duration=0.7833,
+        hit_offsets=[0.40],
     )
 
     coordinated_atk = models.Ability(
@@ -233,7 +234,7 @@ def build_danica(
         mv=coord_mv,
         element="Electro",
         attack_type="Elemental Skill",
-        icd_group="STORM_ANCHOR_COORD",
+        icd_group="NONE",
         hit_offsets=[0.05],
     )
 
@@ -245,7 +246,8 @@ def build_danica(
         attack_type="Stellar-Conduct",
         tags=["Elemental Skill", "Stellar", "Stellar-Conduct", "Will to Protect"],
         icd_group="NONE",
-        hit_offsets=[0.05],
+        cast_duration=1,
+        hit_offsets=[0.75],
     )
     will_to_protect_cast = models.Ability(
         parent_name="Will to Protect",
@@ -254,7 +256,7 @@ def build_danica(
         element="Electro",
         attack_type="Elemental Skill",
         tags=["Will to Protect"],
-        cast_duration=0.30,
+        cast_duration=1,
         hit_offsets=[],
     )
 
@@ -286,7 +288,8 @@ def build_danica(
         mv=burst_h1_mv,
         element="Electro",
         attack_type="Elemental Burst",
-        hit_offsets=[0.20],
+        icd_group="DANICA_BURST",
+        hit_offsets=[1.7333],
     )
     burst_h1_sc = models.Ability(
         parent_name="Rite to Cleanse the World",
@@ -296,8 +299,8 @@ def build_danica(
         attack_type="Stellar-Conduct",
         required_states=["Radiance: Stellar-Conduct"],
         tags=["Elemental Burst", "Stellar", "Stellar-Conduct"],
-        icd_group="NONE",
-        hit_offsets=[0.20],
+        icd_group="DANICA_BURST",
+        hit_offsets=[1.7333],
     )
     burst_h2 = models.Ability(
         parent_name="Rite to Cleanse the World",
@@ -305,7 +308,8 @@ def build_danica(
         mv=burst_mid_mv,
         element="Electro",
         attack_type="Elemental Burst",
-        hit_offsets=[0.40],
+        icd_group="DANICA_BURST",
+        hit_offsets=[1.95],
     )
     burst_h3 = models.Ability(
         parent_name="Rite to Cleanse the World",
@@ -313,7 +317,8 @@ def build_danica(
         mv=burst_mid_mv,
         element="Electro",
         attack_type="Elemental Burst",
-        hit_offsets=[0.60],
+        icd_group="DANICA_BURST",
+        hit_offsets=[2],
     )
     burst_h4 = models.Ability(
         parent_name="Rite to Cleanse the World",
@@ -321,7 +326,8 @@ def build_danica(
         mv=burst_mid_mv,
         element="Electro",
         attack_type="Elemental Burst",
-        hit_offsets=[0.80],
+        icd_group="DANICA_BURST",
+        hit_offsets=[2.3167],
     )
     burst_h5 = models.Ability(
         parent_name="Rite to Cleanse the World",
@@ -329,7 +335,8 @@ def build_danica(
         mv=burst_h5_mv,
         element="Electro",
         attack_type="Elemental Burst",
-        hit_offsets=[1.00],
+        icd_group="DANICA_BURST",
+        hit_offsets=[2.7167],
     )
     burst_h5_sc = models.Ability(
         parent_name="Rite to Cleanse the World",
@@ -339,8 +346,8 @@ def build_danica(
         attack_type="Stellar-Conduct",
         required_states=["Radiance: Stellar-Conduct"],
         tags=["Elemental Burst", "Stellar", "Stellar-Conduct"],
-        icd_group="NONE",
-        hit_offsets=[1.00],
+        icd_group="DANICA_BURST",
+        hit_offsets=[2.7167],
     )
     burst = models.Ability(
         parent_name="Rite to Cleanse the World",
@@ -349,7 +356,8 @@ def build_danica(
         element="Electro",
         attack_type="Elemental Burst",
         tags=["Rite to Cleanse the World"],
-        cast_duration=1.20,
+        cast_duration=1.75,
+        icd_group="DANICA_BURST",
         sub_abilities=[burst_h1, burst_h1_sc, burst_h2, burst_h3, burst_h4, burst_h5, burst_h5_sc],
     )
 
@@ -393,11 +401,11 @@ def build_danica(
         # Off-field Will to Cleanse gain (+50 per active teammate Electro/Cryo hit, 0.1s ICD; disabled in Cleaner form)
         models.StateRule(
             state_id="Will to Cleanse",
-            base_duration=25.0,
+            base_duration=float("inf"),
             trigger_tags=["HIT", "Electro"],
-            required_states=["Storm Anchor", "!Maid: Cleaner"],
-            stacks=50,
-            max_stacks=100,
+            required_states=["Storm Anchor", "!Maid: Cleaner", "!Will to Cleanse:4"],
+            stacks=2,
+            max_stacks=4,
             refresh_mode="REFRESH ALL",
             trigger_icd=0.1,
             trigger_scope="OTHER_TEAMMATES",
@@ -405,11 +413,11 @@ def build_danica(
         ),
         models.StateRule(
             state_id="Will to Cleanse",
-            base_duration=25.0,
+            base_duration=float("inf"),
             trigger_tags=["HIT", "Cryo"],
-            required_states=["Storm Anchor", "!Maid: Cleaner"],
-            stacks=50,
-            max_stacks=100,
+            required_states=["Storm Anchor", "!Maid: Cleaner", "!Will to Cleanse:4"],
+            stacks=2,
+            max_stacks=4,
             refresh_mode="REFRESH ALL",
             trigger_icd=0.1,
             trigger_scope="OTHER_TEAMMATES",
@@ -418,11 +426,11 @@ def build_danica(
         # On-field Will to Cleanse gain (+25 per Storm Anchor NA attack; disabled in Royal Guard form)
         models.StateRule(
             state_id="Will to Cleanse",
-            base_duration=25.0,
+            base_duration=float("inf"),
             trigger_tags=["HIT", "SA_NA_Hit"],
-            required_states=["Storm Anchor", "!Maid: Royal Guard"],
-            stacks=25,
-            max_stacks=100,
+            required_states=["Storm Anchor", "!Maid: Royal Guard", "!Will to Cleanse:4"],
+            stacks=1,
+            max_stacks=4,
             refresh_mode="REFRESH ALL",
             trigger_scope="SELF",
             target_scope="SELF",
@@ -430,43 +438,43 @@ def build_danica(
         # A4 bonus Will to Cleanse (+25 per stack of A4 Cleaner Stack, up to 3 stacks)
         models.StateRule(
             state_id="Will to Cleanse",
-            base_duration=25.0,
+            base_duration=float("inf"),
             trigger_tags=["HIT", "SA_NA_Hit"],
-            required_states=["Storm Anchor", "Maid: Cleaner", "A4 Cleaner Stack:1"],
-            stacks=25,
-            max_stacks=100,
+            required_states=["Storm Anchor", "Maid: Cleaner", "A4 Cleaner Stack:1", "!Will to Cleanse:4"],
+            stacks=1,
+            max_stacks=4,
             refresh_mode="REFRESH ALL",
             trigger_scope="SELF",
             target_scope="SELF",
         ),
         models.StateRule(
             state_id="Will to Cleanse",
-            base_duration=25.0,
+            base_duration=float("inf"),
             trigger_tags=["HIT", "SA_NA_Hit"],
-            required_states=["Storm Anchor", "Maid: Cleaner", "A4 Cleaner Stack:2"],
-            stacks=25,
-            max_stacks=100,
+            required_states=["Storm Anchor", "Maid: Cleaner", "A4 Cleaner Stack:2", "!Will to Cleanse:4"],
+            stacks=1,
+            max_stacks=4,
             refresh_mode="REFRESH ALL",
             trigger_scope="SELF",
             target_scope="SELF",
         ),
         models.StateRule(
             state_id="Will to Cleanse",
-            base_duration=25.0,
+            base_duration=float("inf"),
             trigger_tags=["HIT", "SA_NA_Hit"],
-            required_states=["Storm Anchor", "Maid: Cleaner", "A4 Cleaner Stack:3"],
-            stacks=25,
-            max_stacks=100,
+            required_states=["Storm Anchor", "Maid: Cleaner", "A4 Cleaner Stack:3", "!Will to Cleanse:4"],
+            stacks=1,
+            max_stacks=4,
             refresh_mode="REFRESH ALL",
             trigger_scope="SELF",
             target_scope="SELF",
         ),
-        # Will to Protect (triggers on SWAP_IN or explicit CAST when Will to Cleanse == 100)
+        # Will to Protect (triggers on SWAP_IN or explicit CAST when Will to Cleanse == 4)
         models.StateRule(
             state_id="Maid: Royal Guard",
             base_duration=float("inf"),
             trigger_tags=["SWAP_IN"],
-            required_states=["Storm Anchor", "Will to Cleanse:100"],
+            required_states=["Storm Anchor", "Will to Cleanse:4"],
             termination_rules=[
                 "Will to Cleanse",
                 "Maid: Cleaner",
@@ -474,14 +482,14 @@ def build_danica(
                 "Cleaner Purge Count",
                 "Burst Cleaner Enhancement",
             ],
-            target_scope="SELF",
+            target_scope="TEAM",
             triggered_ability=will_to_protect_hit,
         ),
         models.StateRule(
             state_id="Maid: Royal Guard",
             base_duration=float("inf"),
             trigger_tags=["CAST", "Will to Protect"],
-            required_states=["Storm Anchor", "Will to Cleanse:100"],
+            required_states=["Storm Anchor", "Will to Cleanse:4"],
             termination_rules=[
                 "Will to Cleanse",
                 "Maid: Cleaner",
@@ -489,7 +497,7 @@ def build_danica(
                 "Cleaner Purge Count",
                 "Burst Cleaner Enhancement",
             ],
-            target_scope="SELF",
+            target_scope="TEAM",
             triggered_ability=will_to_protect_hit,
         ),
         models.StateRule(
@@ -504,12 +512,12 @@ def build_danica(
             trigger_tags=["HIT", "Will to Protect"],
             target_scope="GLOBAL",
         ),
-        # Will to Purge -> Maid: Cleaner (on-field CAST when Will to Cleanse == 100)
+        # Will to Purge -> Maid: Cleaner (on-field CAST when Will to Cleanse == 4)
         models.StateRule(
             state_id="Cleaner Purge Count",
             base_duration=float("inf"),
             trigger_tags=["CAST", "Will to Purge"],
-            required_states=["Storm Anchor", "Will to Cleanse:100", "Maid: Cleaner"],
+            required_states=["Storm Anchor", "Will to Cleanse:4", "Maid: Cleaner"],
             max_stacks=5,
             refresh_mode="REFRESH ALL",
             target_scope="SELF",
@@ -518,7 +526,7 @@ def build_danica(
             state_id="Maid: Cleaner",
             base_duration=float("inf"),
             trigger_tags=["CAST", "Will to Purge"],
-            required_states=["Storm Anchor", "Will to Cleanse:100"],
+            required_states=["Storm Anchor", "Will to Cleanse:4"],
             termination_rules=["Will to Cleanse", "Maid: Royal Guard", "Royal Aegis", "Burst Royal Guard Enhancement"],
             target_scope="SELF",
             triggered_ability=will_to_purge_hit,
@@ -527,7 +535,7 @@ def build_danica(
             state_id="A4 Cleaner Stack",
             base_duration=float("inf"),
             trigger_tags=["CAST", "Will to Purge"],
-            required_states=["Storm Anchor", "Will to Cleanse:100"],
+            required_states=["Storm Anchor", "Will to Cleanse:4"],
             max_stacks=3,
             refresh_mode="REFRESH ALL",
             target_scope="SELF",
@@ -537,7 +545,7 @@ def build_danica(
             state_id="Cleaner Destroy Anchor",
             base_duration=0.0,
             trigger_tags=["CAST", "Will to Purge"],
-            required_states=["Storm Anchor", "Will to Cleanse:100", "Maid: Cleaner", "Cleaner Purge Count:4"],
+            required_states=["Storm Anchor", "Will to Cleanse:4", "Maid: Cleaner", "Cleaner Purge Count:4"],
             termination_rules=[
                 "Storm Anchor",
                 "Maid: Cleaner",
@@ -551,7 +559,7 @@ def build_danica(
             state_id="Cleaner Destroy Aegis",
             base_duration=0.0,
             trigger_tags=["CAST", "Will to Purge"],
-            required_states=["Storm Anchor", "Will to Cleanse:100", "Maid: Cleaner", "Cleaner Purge Count:4"],
+            required_states=["Storm Anchor", "Will to Cleanse:4", "Maid: Cleaner", "Cleaner Purge Count:4"],
             termination_rules=["Royal Aegis"],
             target_scope="TEAM",
         ),
@@ -567,14 +575,7 @@ def build_danica(
             base_duration=20.0,
             trigger_tags=["CAST", "Rite to Cleanse the World"],
             required_states=["Maid: Royal Guard"],
-            target_scope="SELF",
-        ),
-        models.StateRule(
-            state_id="Burst Royal Guard Enhancement",
-            base_duration=20.0,
-            trigger_tags=["HIT", "Will to Protect"],
-            required_states=["Burst Attendant Window"],
-            target_scope="SELF",
+            target_scope="TEAM",
         ),
         models.StateRule(
             state_id="Burst Cleaner Enhancement",
@@ -588,8 +589,8 @@ def build_danica(
             base_duration=25.0,
             trigger_tags=["CAST", "Rite to Cleanse the World"],
             required_states=["Storm Anchor", "Maid: Cleaner"],
-            stacks=100,
-            max_stacks=100,
+            stacks=4,
+            max_stacks=4,
             refresh_mode="REFRESH ALL",
             target_scope="SELF",
         ),
@@ -605,8 +606,8 @@ def build_danica(
             base_duration=25.0,
             trigger_tags=["HIT", "Will to Purge"],
             required_states=["Storm Anchor", "Burst Attendant Window"],
-            stacks=100,
-            max_stacks=100,
+            stacks=4,
+            max_stacks=4,
             refresh_mode="REFRESH ALL",
             target_scope="SELF",
         ),
@@ -743,6 +744,7 @@ def build_danica(
             stat="ATK%",
             base_value=0.20,
             required_states=["Maid: Royal Guard"],
+            scaling_order=0,
             target_scope="SELF",
         ),
         models.BuffRule(
@@ -762,7 +764,7 @@ def build_danica(
             base_value=0.00007,
             scaling_stat="ATK",
             max_value=0.14,
-            scaling_order=1,
+            scaling_order=3,
             target_scope="TEAM",
             ability_filters=["Stellar-Conduct"],
         ),
@@ -775,7 +777,7 @@ def build_danica(
             required_states=["Maid: Royal Guard", "Burst Royal Guard Enhancement"],
             scaling_stat="ATK",
             max_value=burst_rg_cap,
-            scaling_order=1,
+            scaling_order=2,
             target_scope="TEAM",
         ),
         models.BuffRule(
@@ -819,8 +821,8 @@ def build_danica(
         buff_rules.extend([
             models.BuffRule(
                 buff_id="DANICA_C6_SC_ELEVATION",
-                buff_name="The Star That Wakes Ere Dawn Breaks Stellar-Conduct Elevation%",
-                stat="Elevation%",
+                buff_name="The Star That Wakes Ere Dawn Breaks Stellar-Conduct Elevation",
+                stat="Elevation",
                 base_value=0.20,
                 required_states=["Storm Anchor"],
                 target_scope="TEAM",

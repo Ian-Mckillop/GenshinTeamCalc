@@ -69,8 +69,8 @@ class Character:
             self.base_atk = self.base_atk * 1.225
             self.base_def = self.base_def * 1.071
 
-        self.artifact_set = [copy.copy(r) for r in self.artifact_set]
-        self.weapon = copy.copy(self.weapon)
+        self.artifact_set = [copy.deepcopy(r) for r in self.artifact_set]
+        self.weapon = copy.deepcopy(self.weapon)
 
 
         for state in self.state_rules:

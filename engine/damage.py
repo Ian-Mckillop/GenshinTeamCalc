@@ -97,9 +97,10 @@ def calculate_reaction_ls_damage(
                 + stats.get("Stellar DMG%" if "Stellar" in reaction else "Lunar DMG%", 0.0)
         )
         flat_dmg = stats.get("Reaction Flat DMG", 0.0)
-        elevation_mult = 1 + stats.get("Elevation%", 0.0)
+        elevation_mult = 1 + stats.get("Elevation", 0.0)
         crit_mult = 1 + max(0, min(1, stats.get("Crit Rate", 0.0))) * stats.get("Crit Damage", 0.0)
-        damage = ((lvl_mult * rxn_coeff * rxn_base_dmg_p * rxn_dmg_p) + flat_dmg) * elevation_mult * crit_mult * res_mult
+        rxn_coeff_up = (rxn_coeff + stats.get("Base Reaction Coefficient", 0.0)) * (1 + stats.get("Reaction Base Mult", 0.0))
+        damage = ((lvl_mult * rxn_coeff_up * rxn_base_dmg_p * rxn_dmg_p) + flat_dmg) * elevation_mult * crit_mult * res_mult
         individual_damages.append(damage)
 
     individual_damages.sort(reverse=True)
@@ -191,7 +192,7 @@ def calculate_hit_damage(attacker: entities.Character, ability: models.Ability, 
         )
         def_mult = (attacker.lvl + 100) / (
                 attacker.lvl + 100
-                + ((enemy.lvl + 100) * (1 - base_stats.get("Def Shred", 0.0)) * (1 - base_stats.get("Def Ignore", 0.0)))
+                + ((enemy.lvl + 100) * (1 - base_stats.get("DEF Shred", 0.0)) * (1 - base_stats.get("DEF Ignore", 0.0)))
         )
 
         return ((base_dmg * base_dmg_mult) + additive_base_dmg) * dmg_p_mult * crit_mult * def_mult * res_mult * reaction_mult
@@ -206,11 +207,10 @@ def calculate_hit_damage(attacker: entities.Character, ability: models.Ability, 
                 1
                 + ((6 * em) / (em + 2000))
                 + base_stats.get("Reaction DMG%", 0.0)
-                + base_stats.get(f"{ability.attack_type} DMG%", 0.0)
                 + base_stats.get("Stellar DMG%" if is_stellar else "Lunar DMG%", 0.0)
         )
         additive_base_dmg = base_stats.get("Reaction Flat DMG", 0.0)
-        elevation_mult = 1 + base_stats.get("Elevation%", 0.0)
+        elevation_mult = 1 + base_stats.get("Elevation", 0.0)
 
         return ((base_rxn_coefficient * base_dmg * base_dmg_mult * rxn_base_dmg_p * rxn_dmg_p) + additive_base_dmg) * elevation_mult * crit_mult * res_mult
 

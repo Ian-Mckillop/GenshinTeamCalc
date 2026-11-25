@@ -5,6 +5,7 @@ from engine.models import Ability
 import copy
 import heapq
 from engine.damage import calculate_hit_damage, transformative_coefficients, calculate_reaction_ls_damage
+from engine.resonances import get_team_resonances
 
 # --- Constants ---
 
@@ -397,7 +398,14 @@ def detonate_vortex(
     trigger_char = next(iter(vortex.contributors.values()))
     damage_by_char[trigger_char.name] += damage
 
-def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rotation: list[RotationStep]):
+def simulate_rotation(
+        team: list[entities.Character],
+        enemy: entities.Enemy,
+        rotation: list[RotationStep],
+        rotation_time: float | None = None,
+        first_rotation_time: float = 1000,
+        second_rotation_time: float = 1000,
+):
     """
     Calculates the damage each character in a team deals, for a given rotation.
 
@@ -405,6 +413,9 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
         team (list[entities.Character]): The team of characters to simulate.
         enemy (entities.Enemy): the enemy to simulate damage against.
         rotation (list[RotationStep]): The set of attacks to simulate.
+        rotation_time (float): The total time of the rotation.
+        first_rotation_time (float): The total time of the first rotation.
+        second_rotation_time (float): The total time of the second rotation.
 
     Returns:
         The amount of damage each character in the team deals.
@@ -413,6 +424,7 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
     on_field_character = None
     events = []
     seq_counter = itertools.count()
+    previous_buffs = []
 
     for step in rotation:
         if step.character != on_field_character and on_field_character is not None:
@@ -454,12 +466,16 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
         instant_lv2_vortex = instant_lv2_vortex or character.instant_lv2_vortex
         has_lunar_domain_a4 = has_lunar_domain_a4 or character.lunar_domain_a4
 
+    res_state_rules, res_buff_rules = get_team_resonances(team)
+    all_state_rules.extend(res_state_rules)
+    all_buff_rules.extend(res_buff_rules)
+
     active_states: dict[str, list[float]] = {}
     icd_tracker: dict[ tuple[str, str] , list[float]] = {}
     aura_owners: dict[str, entities.Character] = {}
 
     on_field_character = None
-    damage_by_char = {char.name: 0.0 for char in team}
+    damage_by_char_per_rotation = [{char.name: 0.0 for char in team}, {char.name: 0.0 for char in team}, {char.name: 0.0 for char in team}]
 
     ec_owner: entities.Character | None = None
     next_ec_time: float | None = None
@@ -668,6 +684,10 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
 
     while events:
         event = heapq.heappop(events)
+        if rotation_time is not None and event.timestamp > rotation_time:
+            continue
+
+        damage_by_char = damage_by_char_per_rotation[2 if event.timestamp > first_rotation_time + second_rotation_time else 1 if event.timestamp > first_rotation_time else 0]
 
         if event.timestamp > thundercloud_expire:
             lc_contributors.clear()
@@ -682,6 +702,7 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
         while 0.0 < polestar_record_end <= event.timestamp:
             polestar_buff_active = True
             polestar_active_stacks = min(12, polestar_recorded_hits + polestar_bonus_stacks)
+            print(f"{"\033[33m"}t: {event.timestamp:.2f}{"\033[0m"} | {"\033[31m"}Polestar Field Active Stacks: {polestar_active_stacks}{"\033[0m"}")
             polestar_recorded_hits = 0
             polestar_record_end += 4.0
 
@@ -755,6 +776,13 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
             else:
                 on_field_character = event.character
 
+        if event.event_type == "HIT":
+            all_eff_states = {c.name: effective_char_states(c.name) for c in team}
+            if event.ability.required_states and not check_required_states(
+                    event.ability.required_states, active_states, all_eff_states[event.character.name], all_eff_states
+            ):
+                continue
+
         apply_state_triggers(event.character, event_tags, event.timestamp)
 
         lunar_domain_enhanced = has_lunar_domain_a4 and len(active_states.get("Lunar Domain", [])) > 0
@@ -762,12 +790,13 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
         triggered_reactions: list[tuple[str, str | None]] = []
 
         if event.event_type == "HIT":
-            all_eff_states = {c.name: effective_char_states(c.name) for c in team}
-            if event.ability.required_states and not check_required_states(
-                    event.ability.required_states, active_states, all_eff_states[event.character.name], all_eff_states
-            ):
-                continue
+
             update_auras(enemy, event.timestamp)
+
+            if "Cryo" in enemy.auras or "Frozen" in enemy.auras:
+                active_states["ENEMY_AURA_CRYO_OR_FROZEN"] = [float("inf")]
+            else:
+                active_states.pop("ENEMY_AURA_CRYO_OR_FROZEN", None)
 
             applies_element = check_icd(icd_tracker, event)
 
@@ -777,17 +806,23 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
 
             if dendro_cores and event.ability.element in ("Pyro", "Electro"):
                 rxn_name = "Hyperbloom" if event.ability.element == "Electro" else "Burgeon"
+                apply_state_triggers(event.character, ["REACTION", rxn_name], event.timestamp)
                 for _ in range(min(2,len(dendro_cores))):
                     core = dendro_cores.pop(0)
                     core.active = False
                     triggered_reactions.append((rxn_name, "Dendro"))
 
             if applies_element:
+                if event.ability.element == "Electro":
+                    print(f"{"\033[33m"}t: {event.timestamp:.2f}{"\033[0m"} | {"\033[35m"}{event.character.name}'s {event.ability.component_name} Applied {event.ability.element}{"\033[0m"}")
+                else:
+                    print(f"{"\033[33m"}t: {event.timestamp:.2f}{"\033[0m"} | {"\033[96m"}{event.character.name}'s {event.ability.component_name} Applied {event.ability.element}{"\033[0m"}")
                 if event.ability.element in ("Hydro", "Electro") and event.timestamp <= thundercloud_expire:
                     lc_contributors[event.character.name] = event.character
 
                 if event.ability.element in ("Cryo", "Electro") and event.timestamp < polestar_expire:
                     polestar_recorded_hits += 1
+                    print(f"{"\033[33m"}t: {event.timestamp:.2f}{"\033[0m"} | Polestar Field Hit Count: {polestar_recorded_hits}")
 
                 for aura_elm in sorted(enemy.auras.keys(), key=lambda el: (el != "Quicken", el != "Burning")):
                     search_elm = "Cryo" if aura_elm == "Frozen" else ("Pyro" if aura_elm == "Burning" else aura_elm)
@@ -812,6 +847,7 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                             if next_ec_time is None:
                                 triggered_reactions.append(("Electro-Charged", "Electro"))
                                 next_ec_time = process_ec_tick(enemy, events, event.timestamp, ec_owner, seq= next(seq_counter))
+                            apply_state_triggers(event.character, ["REACTION", reaction], event.timestamp)
                             break
 
                         if reaction == "Burning":
@@ -821,6 +857,7 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                             burning_owner = event.character
                             if next_burning_time is None:
                                 next_burning_time = process_burning_tick(enemy, events, event.timestamp, burning_owner, seq= next(seq_counter))
+                            apply_state_triggers(event.character, ["REACTION", reaction], event.timestamp)
                             break
 
                         decrement_aura(enemy, aura_elm, event.ability.gauge_units * tax)
@@ -849,6 +886,7 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                                 overflow = dendro_cores.pop(0)
                                 overflow.active = False
                                 heapq.heappush(events, SimEvent(event.timestamp, "CORE_EXPIRE", overflow.creator, bloom_ability, seq= next(seq_counter)))
+                            apply_state_triggers(event.character, ["REACTION", reaction], event.timestamp)
                             break
 
                         if reaction == "Stellar-Conduct":
@@ -908,6 +946,7 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                             if next_lc_time is None and (event.timestamp + 2.0) <= thundercloud_expire:
                                 next_lc_time = event.timestamp + 2.0
                                 heapq.heappush(events, SimEvent(next_lc_time, "REACTION_TICK", lc_owner, make_rxn_ability("Lunar-Charged", "Electro"), seq= next(seq_counter)))
+                            apply_state_triggers(event.character, ["REACTION", reaction], event.timestamp)
                             break
 
                         if reaction == "Lunar-Crystallize":
@@ -918,6 +957,7 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                             lunar_crystallize_count += 1
                             if lunar_crystallize_count % 3 == 0:
                                 trigger_moondrift_harmony = True
+                            apply_state_triggers(event.character, ["REACTION", reaction], event.timestamp)
                             break
 
                         triggered_reactions.append((reaction, rxn_element))
@@ -1029,6 +1069,11 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                         if buff.party_count_rule == "DIVIDE_BY_RECIPIENTS":
                             copied_buff.base_value /= len(eligible_chars)
 
+                        if copied_buff.buff_group != "NONE" and any(
+                                b.buff_group == copied_buff.buff_group for b in buffs_by_char[char.name]
+                        ):
+                            continue
+
                         if not buff.ability_filters and not buff.element_filters:
                             team_stats[char.name][copied_buff.stat] = (
                                     team_stats[char.name].get(copied_buff.stat, 0.0) + copied_buff.base_value
@@ -1085,13 +1130,46 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                     buffs_by_char[char.name].extend(polestar_buffs)
 
             if event.event_type == "HIT":
-                # Override for Stellar or Lunar Reactions
-                # for char in team:
-                #    reaction = char.reaction_override[reaction] if reaction in char.reaction_override.keys() else reaction
 
                 # Modifies the talent hit with at most 1 amp/add reaction
                 talent_rxn = next((rxn for rxn, _ in triggered_reactions if rxn not in transformative_coefficients and rxn != "Stellar Swirl"), None)
                 event_damage = calculate_hit_damage(event.character, event.ability, enemy, buffs_by_char[event.character.name], talent_rxn)
+
+                # if event.character.name == "Odette":
+                char_ability = f"{event.character.name} used {event.ability.component_name}"
+                print(f"{"\033[33m"}t: {event.timestamp:.2f}{"\033[0m"} | {"\033[32m"}{char_ability: <51}{"\033[0m"} | {"\033[32m"}Ability Damage: {event_damage:.2f}{"\033[0m"}")
+                # print(f"Polestar Field Stack Count: {polestar_active_stacks}")
+                print_buffs = False
+                if print_buffs:
+                    diff_buffs = [b for b in buffs_by_char[event.character.name] if b not in previous_buffs]
+                    lost_buffs = [b for b in previous_buffs if b not in buffs_by_char[event.character.name]]
+                    for buff in diff_buffs:
+                        print(f" Buff Name: {buff.buff_name}")
+                        print(f" Buff Stat: {buff.stat}, Buff Vals: {buff.base_value:.2f}")
+                        print(f" Buff Element Filters: {buff.element_filters}")
+                        print(f" Buff Ability Filters: {buff.ability_filters} \n")
+
+                    for buff in lost_buffs:
+                        print(f"{"\033[36m"} Buff Name: {buff.buff_name}")
+                        print(f" Buff Stat: {buff.stat}, Buff Vals: {buff.base_value:.2f}")
+                        print(f" Buff Element Filters: {buff.element_filters}")
+                        print(f" Buff Ability Filters: {buff.ability_filters} \n{"\033[0m"}")
+
+                    previous_buffs = buffs_by_char[event.character.name]
+
+                """
+                if event.character.name == "Danica" and event.timestamp < first_rotation_time:
+                    print(f"{"\033[32m"}Ability Name: {event.ability.component_name: <35} | Ability Damage: {event_damage:.2f}{"\033[0m"}")
+                    # print(f"{event.timestamp}")
+                    print_buffs = True
+                    if print_buffs:
+                        for buff in buffs_by_char[event.character.name]:
+                            print(f" Buff Name: {buff.buff_name}")
+                            print(f" Buff Stat: {buff.stat}, Buff Vals: {buff.base_value:.2f}")
+                            print(f" Buff Element Filters: {buff.element_filters}")
+                            print(f" Buff Ability Filters: {buff.ability_filters} \n")
+                """
+
 
                 # Adds a hit for every transformative reaction that occurs
                 for rxn, rxn_elm in triggered_reactions:
@@ -1114,6 +1192,7 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                     detonate_early_vortex = None
                     if event.timestamp < polestar_expire:
                         polestar_recorded_hits += 1
+                        print(f"Polestar Field Hit Count: {polestar_recorded_hits}")
                 if trigger_moondrift_harmony:
                     contributors = [(char, buffs_by_char[char.name]) for char in lcrys_contributors.values()]
                     strike_mult = 1.33 if lunar_domain_enhanced else 1.0
@@ -1149,5 +1228,6 @@ def simulate_rotation(team: list[entities.Character], enemy: entities.Enemy, rot
                 detonate_vortex(event.vortex, enemy, buffs_by_char, damage_by_char)
                 if event.timestamp < polestar_expire:
                     polestar_recorded_hits += 1
+                    print(f"Polestar Field Hit Count: {polestar_recorded_hits}")
 
-    return damage_by_char
+    return damage_by_char_per_rotation

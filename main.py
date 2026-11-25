@@ -2,7 +2,7 @@ import engine.models as models
 import engine.entities as entities
 from engine.damage import calculate_hit_damage
 from engine.simulator import simulate_rotation, RotationStep
-
+"""
 
 ana_palestar_hit_1 = models.Ability(
     parent_name="Skill: Palestar Crown",
@@ -152,3 +152,7 @@ calculate_hit_damage(Anastasya, ana_skill_tap, test_enemy, [buff_ana_accolades_b
 first_step = RotationStep(Anastasya, ana_skill_tap)
 rotation = simulate_rotation([Anastasya], test_enemy, [first_step])
 print(rotation)
+
+"""
+
+print(len([1, None, None]))

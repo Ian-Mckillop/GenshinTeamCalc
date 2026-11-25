@@ -151,8 +151,8 @@ def build_odette(
     )
 
     # 4. Elemental Skill, Solo Dance Double & Special Skill (Adagio: Coda at Dawn's Tolling)
-    plume_offsets = [2.0, 6.0, 10.0, 14.0, 18.0]
-    wing_offsets = [4.0, 8.0, 12.0, 16.0]
+    plume_offsets = [2, 6, 10, 14, 18]
+    wing_offsets = [4, 8, 12, 16, 20]
 
     dance_double_subs = [
         models.Ability(
@@ -164,7 +164,8 @@ def build_odette(
             required_states=["Solo Dance Double"],
             hit_offsets=plume_offsets,
             summon_id="solo_dance_double",
-            icd_group="DANCE_DOUBLE_PLUME",
+            icd_group="NONE",
+            icd_time=0,
         ),
         models.Ability(
             parent_name="Solo Dance Double",
@@ -176,7 +177,7 @@ def build_odette(
             tags=["Elemental Skill", "Stellar", "Stellar-Conduct"],
             hit_offsets=plume_offsets,
             summon_id="solo_dance_double",
-            icd_group="DANCE_DOUBLE_PLUME_STELLAR",
+            gauge_units=0.0,
         ),
         models.Ability(
             parent_name="Solo Dance Double",
@@ -188,7 +189,7 @@ def build_odette(
             tags=["Elemental Skill", "Stellar", "Stellar Swirl"],
             hit_offsets=plume_offsets,
             summon_id="solo_dance_double",
-            icd_group="DANCE_DOUBLE_PLUME_STELLAR",
+            gauge_units=0.0,
         ),
         models.Ability(
             parent_name="Solo Dance Double",
@@ -199,7 +200,7 @@ def build_odette(
             required_states=["Solo Dance Double"],
             hit_offsets=wing_offsets,
             summon_id="solo_dance_double",
-            icd_group="DANCE_DOUBLE_WING",
+            icd_group="NONE",
         ),
         models.Ability(
             parent_name="Solo Dance Double",
@@ -211,7 +212,7 @@ def build_odette(
             tags=["Elemental Skill", "Stellar", "Stellar-Conduct"],
             hit_offsets=wing_offsets,
             summon_id="solo_dance_double",
-            icd_group="DANCE_DOUBLE_WING_STELLAR",
+            gauge_units=0.0
         ),
         models.Ability(
             parent_name="Solo Dance Double",
@@ -223,7 +224,7 @@ def build_odette(
             tags=["Elemental Skill", "Stellar", "Stellar Swirl"],
             hit_offsets=wing_offsets,
             summon_id="solo_dance_double",
-            icd_group="DANCE_DOUBLE_WING_STELLAR",
+            gauge_units=0.0
         ),
     ]
 
@@ -234,8 +235,8 @@ def build_odette(
         element="Cryo",
         attack_type="Elemental Skill",
         tags=["Adagio Skill", "Summon Dance Double"],
-        cast_duration=0.50,
-        hit_offsets=[0.25],
+        cast_duration=0.6667,
+        hit_offsets=[0.4167],
         summon_id="solo_dance_double",
         icd_group="NONE",
         sub_abilities=dance_double_subs,
@@ -249,8 +250,10 @@ def build_odette(
             element="Cryo",
             attack_type="Elemental Skill",
             required_states=["Coda Active"],
-            hit_offsets=[0.50],
+            hit_offsets=[0.2167, 0.3500, 0.5167],
             icd_group="CODA_DOT",
+            icd_time=3,
+            icd_hits=999,
         ),
         models.Ability(
             parent_name="Adagio: Coda at Dawn's Tolling",
@@ -260,8 +263,8 @@ def build_odette(
             attack_type="Stellar-Conduct",
             required_states=["Coda Active", "!Radiance: Stellar Swirl"],
             tags=["Elemental Skill", "Stellar", "Stellar-Conduct"],
-            hit_offsets=[1.50],
-            icd_group="NONE",
+            hit_offsets=[1.0833],
+            gauge_units=0.0
         ),
         models.Ability(
             parent_name="Adagio: Coda at Dawn's Tolling",
@@ -271,8 +274,8 @@ def build_odette(
             attack_type="Stellar Swirl",
             required_states=["Coda Active", "Radiance: Stellar Swirl", "!Radiance: Stellar-Conduct"],
             tags=["Elemental Skill", "Stellar", "Stellar Swirl"],
-            hit_offsets=[1.50],
-            icd_group="NONE",
+            hit_offsets=[1.0833],
+            gauge_units=0.0
         ),
     ]
     if constellation >= 1:
@@ -286,7 +289,7 @@ def build_odette(
                 required_states=["Coda Active", "!Radiance: Stellar Swirl"],
                 tags=["Elemental Skill", "Stellar", "Stellar-Conduct"],
                 hit_offsets=[1.50],
-                icd_group="NONE",
+                gauge_units=0.0
             ),
             models.Ability(
                 parent_name="Adagio: Coda at Dawn's Tolling",
@@ -297,7 +300,7 @@ def build_odette(
                 required_states=["Coda Active", "Radiance: Stellar Swirl", "!Radiance: Stellar-Conduct"],
                 tags=["Elemental Skill", "Stellar", "Stellar Swirl"],
                 hit_offsets=[1.50],
-                icd_group="NONE",
+                gauge_units=0.0
             ),
         ])
 
@@ -309,8 +312,7 @@ def build_odette(
         attack_type="Elemental Skill",
         required_states=["Solo Dance Double", "Coda Window"],
         tags=["Coda Skill"],
-        cast_duration=0.60,
-        gauge_units=0.0,
+        cast_duration=1.3667,
         sub_abilities=coda_subs,
     )
 
@@ -356,7 +358,7 @@ def build_odette(
         # Summon / refresh Solo Dance Double (20.0s, ticks every 1.0s for off-field Marvelous Splendor transfer)
         models.StateRule(
             state_id="Solo Dance Double",
-            base_duration=20.0,
+            base_duration=20.1,
             trigger_tags=["CAST", "Summon Dance Double"],
             tick_interval=1.0,
             target_scope="GLOBAL",
@@ -541,7 +543,7 @@ def build_odette(
             scaling_stat="ATK",
             scaling_offset=1000.0,
             max_value=0.30,
-            scaling_order=1,
+            scaling_order=3,
             target_scope="SELF",
             ability_filters=["Stellar-Conduct", "Stellar Swirl"],
         ),
@@ -553,7 +555,7 @@ def build_odette(
             base_value=0.00007,
             scaling_stat="ATK",
             max_value=0.14,
-            scaling_order=1,
+            scaling_order=3,
             target_scope="TEAM",
             ability_filters=["Stellar-Conduct", "Stellar Swirl"],
         ),
@@ -617,8 +619,8 @@ def build_odette(
         buff_rules.extend([
             models.BuffRule(
                 buff_id="ODETTE_C6_TEAM_MS_ELEVATION",
-                buff_name="C6 Marvelous Splendor Stellar Glimmer Elevation%",
-                stat="Elevation%",
+                buff_name="C6 Marvelous Splendor Stellar Glimmer Elevation",
+                stat="Elevation",
                 base_value=0.25,
                 required_states=["Marvelous Splendor"],
                 target_scope="TEAM",
@@ -626,8 +628,8 @@ def build_odette(
             ),
             models.BuffRule(
                 buff_id="ODETTE_C6_SELF_MS_ELEVATION",
-                buff_name="C6 Odette Additional Stellar Glimmer Elevation%",
-                stat="Elevation%",
+                buff_name="C6 Odette Additional Stellar Glimmer Elevation",
+                stat="Elevation",
                 base_value=0.20,
                 required_states=["Marvelous Splendor"],
                 target_scope="SELF",
@@ -667,9 +669,6 @@ def build_odette(
         state_rules=state_rules,
         buff_rules=buff_rules,
         reaction_override={"Superconduct": "Stellar-Conduct", "Swirl": "Stellar Swirl"},
-        polestar_bonus_stacks=1,
-        polestar_instant_buff=True,
-        instant_lv2_vortex=True,
     )
 
     return odette, abilities

@@ -2,56 +2,69 @@ import engine.entities as entities
 import engine.models as models
 
 
-def _radiance_variants(
+def _radiance_variant_subs(
     parent_name: str,
-    component_name: str,
+    base_comp: str,
+    element: str,
+    attack_type: str,
     normal_mv: float,
     sc_mv: float,
     ss_mv: float,
-    normal_type: str,
-    base_reqs: list[str],
     hit_offsets: list[float],
-    icd_group: str,
-    summon_id: str | None = None,
     extra_tags: list[str] | None = None,
+    gauge_units: float = 0.0,
+    icd_group: str = "NONE",
+    summon_id: str | None = None,
+    icd_hits: int = 3,
 ) -> list[models.Ability]:
-    tags = extra_tags or []
+    """
+    Creates the 3 mutually exclusive hit variants for an attack instance that converts
+    to Stellar-Conduct / Stellar Swirl DMG under Radiance: Stellar Glimmer
+    (with Radiance: Stellar-Conduct taking priority over Radiance: Stellar Swirl).
+    """
+    base_tags = list(extra_tags) if extra_tags else []
     return [
         models.Ability(
             parent_name=parent_name,
-            component_name=component_name,
+            component_name=f"{base_comp} (Normal)",
             mv=normal_mv,
-            element="Cryo",
-            attack_type=normal_type,
-            required_states=[*base_reqs, "!Radiance: Stellar-Conduct", "!Radiance: Stellar Swirl"],
-            tags=tags,
-            hit_offsets=hit_offsets,
-            summon_id=summon_id,
+            element=element,
+            attack_type=attack_type,
+            tags=list(base_tags),
+            hit_offsets=list(hit_offsets),
+            gauge_units=gauge_units,
             icd_group=icd_group,
+            summon_id=summon_id,
+            required_states=["!Radiance: Stellar-Conduct", "!Radiance: Stellar Swirl"],
+            icd_hits=icd_hits,
         ),
         models.Ability(
             parent_name=parent_name,
-            component_name=f"{component_name} (Stellar-Conduct)",
+            component_name=f"{base_comp} (Stellar-Conduct)",
             mv=sc_mv,
-            element="Cryo",
+            element=element,
             attack_type="Stellar-Conduct",
-            required_states=[*base_reqs, "Radiance: Stellar-Conduct"],
-            tags=[*tags, normal_type, "Stellar", "Stellar-Conduct"],
-            hit_offsets=hit_offsets,
-            summon_id=summon_id,
+            tags=[*base_tags, "Stellar", "Stellar-Conduct"],
+            hit_offsets=list(hit_offsets),
+            gauge_units=gauge_units,
             icd_group=icd_group,
+            summon_id=summon_id,
+            required_states=["Radiance: Stellar-Conduct"],
+            icd_hits=icd_hits,
         ),
         models.Ability(
             parent_name=parent_name,
-            component_name=f"{component_name} (Stellar Swirl)",
+            component_name=f"{base_comp} (Stellar Swirl)",
             mv=ss_mv,
-            element="Cryo",
+            element=element,
             attack_type="Stellar Swirl",
-            required_states=[*base_reqs, "Radiance: Stellar Swirl", "!Radiance: Stellar-Conduct"],
-            tags=[*tags, normal_type, "Stellar", "Stellar Swirl"],
-            hit_offsets=hit_offsets,
-            summon_id=summon_id,
+            tags=[*base_tags, "Stellar", "Stellar Swirl"],
+            hit_offsets=list(hit_offsets),
+            gauge_units=gauge_units,
             icd_group=icd_group,
+            summon_id=summon_id,
+            required_states=["!Radiance: Stellar-Conduct", "Radiance: Stellar Swirl"],
+            icd_hits=icd_hits,
         ),
     ]
 
@@ -62,13 +75,13 @@ def build_anastasya(
     artifact_set: list[entities.ArtifactSet] | None = None,
     artifact_stats: dict[str, float] | None = None,
     lvl: int = 90,
-    sealed_duration: float = 6.0,
 ) -> tuple[entities.Character, dict[str, models.Ability]]:
     """
-    Builds Anastasya (5-star Cryo Bow) with full C0-C6 kit, passives, and ability dictionary.
+    Builds Anastasya (5-star Cryo Bow, Frostcrown Revival) at Lv. 90 with
+    Talents 10 / 10 (13 at C5) / 10 (13 at C3), Passives A1/A4/P3, and C0–C6.
     """
     if weapon is None:
-        weapon = entities.Weapon(name="Hunter's Bow", type="Bow", base_atk=185.0)
+        weapon = entities.Weapon("DefaultBow", "Bow", 185.0)
     if artifact_set is None:
         artifact_set = []
     if artifact_stats is None:
@@ -76,655 +89,687 @@ def build_anastasya(
 
     skill_c5 = constellation >= 5
     burst_c3 = constellation >= 3
+    skill_scale = 1.1805556 if skill_c5 else 1.0
+    burst_scale = 1.1805556 if burst_c3 else 1.0
 
-    # --- Talent Multipliers (Lv. 10 vs Lv. 13 for C3/C5) ---
-    s_scale = (2.125 / 1.8) if skill_c5 else 1.0
-    b_scale = (2.125 / 1.8) if burst_c3 else 1.0
-
-    skill_tap_mv = round(2.128 * s_scale, 3)
-    skill_hold_mv = round(2.837 * s_scale, 3)
-    crown_h1_mv = round(1.152 * s_scale, 3)
-    crown_h2_mv = round(1.152 * s_scale, 3)
-    crown_h2_sc_mv = round(0.605 * s_scale, 3)
-    crown_h2_ss_mv = round(0.907 * s_scale, 3)
-
-    triumph_sc_mv = round(4.008 * s_scale, 3)
-    triumph_ss_mv = round(6.012 * s_scale, 3)
-    doom_cryo_mv = round(0.481 * s_scale, 3)
-    doom_h1_sc_mv = round(2.004 * s_scale, 3)
-    doom_h1_ss_mv = round(3.006 * s_scale, 3)
-    doom_h2_sc_mv = round(2.405 * s_scale, 3)
-    doom_h2_ss_mv = round(3.607 * s_scale, 3)
-    doom_h3_sc_mv = round(2.806 * s_scale, 3)
-    doom_h3_ss_mv = round(4.208 * s_scale, 3)
-
-    c6_triumph_sc_mv = round(4.008 * s_scale * 2.50, 3)
-    c6_triumph_ss_mv = round(6.012 * s_scale * 2.50, 3)
-    c6_doom3_sc_mv = round(2.806 * s_scale * 2.00, 3)
-    c6_doom3_ss_mv = round(4.208 * s_scale * 2.00, 3)
-
-    burst_love_mv = round(3.607 * b_scale, 3)
-    burst_honor_sc_mv = round(5.611 * b_scale, 3)
-    burst_honor_ss_mv = round(8.417 * b_scale, 3)
-    crown_burst_sc_mv = round(0.202 * b_scale, 3)
-    crown_burst_ss_mv = round(0.302 * b_scale, 3)
-
-    # A1 / C1 / C4 Accolades & Love Burst Scaling
-    acc_mult = 1.30 if constellation >= 4 else 1.0
-    acc_cd = 0.12 * acc_mult
-    acc_atk = 0.15 * acc_mult
-    acc_em = 60.0 * acc_mult
-    love_burst_dmg_bonus = 0.39 if burst_c3 else 0.30
-
-    # --- Blessed Spear Infused Normal Attacks ---
-    spear_n1 = models.Ability(
-        parent_name="Blessed Spear",
-        component_name="1-Hit Cast",
-        mv=0.0,
-        element="Cryo",
-        attack_type="Normal Attack",
-        required_states=["Blessing of Honor"],
-        cast_duration=0.35,
-        gauge_units=0.0,
-        sub_abilities=_radiance_variants(
-            parent_name="Blessed Spear",
-            component_name="1-Hit",
-            normal_mv=1.129,
-            sc_mv=0.929,
-            ss_mv=1.393,
-            normal_type="Normal Attack",
-            base_reqs=["Blessing of Honor"],
-            hit_offsets=[0.15],
-            icd_group="NORMAL",
-        ),
+    # 1. Normal Attack: The Dawn Beyond the Everwinter (Bow, Lv. 10)
+    na_1 = models.Ability(
+        "The Dawn Beyond the Everwinter", "Bow 1-Hit", 0.783,
+        element="Physical", attack_type="Normal Attack",
+        hit_offsets=[0.20], cast_duration=0.35, gauge_units=1.0,
+    )
+    na_2 = models.Ability(
+        "The Dawn Beyond the Everwinter", "Bow 2-Hit", 0.797,
+        element="Physical", attack_type="Normal Attack",
+        hit_offsets=[0.20], cast_duration=0.35, gauge_units=1.0,
+    )
+    na_3 = models.Ability(
+        "The Dawn Beyond the Everwinter", "Bow 3-Hit", 0.499,
+        element="Physical", attack_type="Normal Attack",
+        hit_offsets=[0.20, 0.32], cast_duration=0.45, gauge_units=1.0,
+    )
+    na_4 = models.Ability(
+        "The Dawn Beyond the Everwinter", "Bow 4-Hit", 0.362,
+        element="Physical", attack_type="Normal Attack",
+        hit_offsets=[0.20, 0.30, 0.40], cast_duration=0.55, gauge_units=1.0,
+    )
+    na_5 = models.Ability(
+        "The Dawn Beyond the Everwinter", "Bow 5-Hit", 1.299,
+        element="Physical", attack_type="Normal Attack",
+        hit_offsets=[0.25], cast_duration=0.50, gauge_units=1.0,
+    )
+    ca_un = models.Ability(
+        "The Dawn Beyond the Everwinter", "Aimed Shot", 0.867,
+        element="Physical", attack_type="Charged Attack",
+        hit_offsets=[0.30], cast_duration=0.50, gauge_units=1.0, icd_group="NONE",
+    )
+    ca_ch = models.Ability(
+        "The Dawn Beyond the Everwinter", "Fully-Charged Aimed Shot", 2.232,
+        element="Cryo", attack_type="Charged Attack",
+        hit_offsets=[1.20], cast_duration=1.40, gauge_units=1.0, icd_group="NONE",
+    )
+    plunge_low = models.Ability(
+        "The Dawn Beyond the Everwinter", "Low Plunge", 2.246,
+        element="Physical", attack_type="Plunging Attack",
+        hit_offsets=[0.50], cast_duration=0.80, gauge_units=1.0, icd_group="NONE",
+    )
+    plunge_high = models.Ability(
+        "The Dawn Beyond the Everwinter", "High Plunge", 2.806,
+        element="Physical", attack_type="Plunging Attack",
+        hit_offsets=[0.60], cast_duration=0.90, gauge_units=1.0, icd_group="NONE",
     )
 
-    # --- Elemental Skill & Palestar Crown ---
-    crown_offsets = [2.0 * i for i in range(1, 21)]
-    crown_subs = [
+    # 2. Elemental Skill: Polestar's Divine Judgment (Lv. 10 / Lv. 13 at C5)
+    # Tap: Gains Blessing of Love & deploys Palestar Crown (ticks every 2.0s for 20.0s = 10 ticks)
+    crown_offsets = [round(2.0 * i, 1) for i in range(1, 11)]
+    crown_hit_1 = models.Ability(
+        "Polestar's Divine Judgment", "Palestar Crown Hit 1", 1.152 * skill_scale,
+        element="Cryo", attack_type="Elemental Skill",
+        tags=["Elemental Skill", "Palestar Crown"],
+        hit_offsets=crown_offsets, gauge_units=1.0, icd_group="PalestarCrown",
+        summon_id="Palestar Crown",
+        icd_time=2,
+    )
+    crown_hit_2_subs = _radiance_variant_subs(
+        parent_name="Polestar's Divine Judgment",
+        base_comp="Palestar Crown Hit 2",
+        element="Cryo",
+        attack_type="Elemental Skill",
+        normal_mv=1.152 * skill_scale,
+        sc_mv=0.605 * skill_scale,
+        ss_mv=0.907 * skill_scale,
+        hit_offsets=crown_offsets,
+        extra_tags=["Elemental Skill", "Palestar Crown"],
+        gauge_units=0.0,
+        icd_group="NONE",
+        summon_id="Palestar Crown",
+        icd_hits=2,
+    )
+    # Additional instance during To the New World (Burst_Love)
+    crown_burst_extra_subs = [
         models.Ability(
-            parent_name="Palestar Crown",
-            component_name="Crown Hit 1",
-            mv=crown_h1_mv,
-            element="Cryo",
-            attack_type="Elemental Skill",
-            required_states=["Palestar Crown"],
-            hit_offsets=crown_offsets,
-            summon_id="palestar_crown",
-            icd_group="CROWN_1",
-        ),
-        *_radiance_variants(
-            parent_name="Palestar Crown",
-            component_name="Crown Hit 2",
-            normal_mv=crown_h2_mv,
-            sc_mv=crown_h2_sc_mv,
-            ss_mv=crown_h2_ss_mv,
-            normal_type="Elemental Skill",
-            base_reqs=["Palestar Crown"],
-            hit_offsets=crown_offsets,
-            icd_group="CROWN_2",
-            summon_id="palestar_crown",
-        ),
-        models.Ability(
-            parent_name="Palestar Crown",
-            component_name="Crown Burst Extra (SC)",
-            mv=crown_burst_sc_mv,
+            parent_name="Polestar's Divine Judgment",
+            component_name="Palestar Crown Burst Extra (Stellar-Conduct)",
+            mv=0.202 * burst_scale,
             element="Cryo",
             attack_type="Stellar-Conduct",
-            required_states=["Palestar Crown", "To the New World", "!Radiance: Stellar Swirl"],
-            tags=["Elemental Burst", "Stellar", "Stellar-Conduct"],
+            tags=["Elemental Skill", "Palestar Crown", "Stellar", "Stellar-Conduct"],
             hit_offsets=crown_offsets,
-            summon_id="palestar_crown",
-            icd_group="CROWN_BURST",
+            gauge_units=0.0,
+            icd_group="NONE",
+            summon_id="Palestar Crown",
+            required_states=["To the New World", "!Radiance: Stellar Swirl"],
+            icd_time=2,
         ),
         models.Ability(
-            parent_name="Palestar Crown",
-            component_name="Crown Burst Extra (SS)",
-            mv=crown_burst_ss_mv,
+            parent_name="Polestar's Divine Judgment",
+            component_name="Palestar Crown Burst Extra (Stellar Swirl)",
+            mv=0.302 * burst_scale,
             element="Cryo",
             attack_type="Stellar Swirl",
-            required_states=["Palestar Crown", "To the New World", "Radiance: Stellar Swirl"],
-            tags=["Elemental Burst", "Stellar", "Stellar Swirl"],
+            tags=["Elemental Skill", "Palestar Crown", "Stellar", "Stellar Swirl"],
             hit_offsets=crown_offsets,
-            summon_id="palestar_crown",
-            icd_group="CROWN_BURST",
+            gauge_units=0.0,
+            icd_group="NONE",
+            summon_id="Palestar Crown",
+            required_states=["To the New World", "!Radiance: Stellar-Conduct", "Radiance: Stellar Swirl"],
+            icd_time=2,
         ),
     ]
 
     skill_tap = models.Ability(
-        parent_name="Polestar's Divine Judgment",
-        component_name="Tap Skill DMG",
-        mv=skill_tap_mv,
-        element="Cryo",
-        attack_type="Elemental Skill",
-        tags=["Polestar Skill", "Tap Skill"],
-        cast_duration=0.50,
-        hit_offsets=[0.20],
-        summon_id="palestar_crown",
-        icd_group="NONE",
-        sub_abilities=crown_subs,
+        "Polestar's Divine Judgment", "Tap Skill DMG", 2.128 * skill_scale,
+        element="Cryo", attack_type="Elemental Skill",
+        tags=["Elemental Skill", "Anastasya Skill", "Anastasya Skill Tap"],
+        hit_offsets=[0.25], cast_duration=0.45, gauge_units=1.0, icd_group="NONE",
+        sub_abilities=[crown_hit_1, *crown_hit_2_subs, *crown_burst_extra_subs],
     )
+
+    # Hold: Gains Blessing of Honor (15.0s) & enters Blessed Spear: Dolgomernoye
     skill_hold = models.Ability(
-        parent_name="Polestar's Divine Judgment",
-        component_name="Hold Skill DMG",
-        mv=skill_hold_mv,
-        element="Cryo",
-        attack_type="Elemental Skill",
-        tags=["Polestar Skill", "Hold Skill"],
-        cast_duration=0.65,
-        hit_offsets=[0.25],
-        icd_group="NONE",
+        "Polestar's Divine Judgment", "Hold Skill DMG", 2.837 * skill_scale,
+        element="Cryo", attack_type="Elemental Skill",
+        tags=["Elemental Skill", "Anastasya Skill", "Anastasya Skill Hold"],
+        hit_offsets=[0.8], cast_duration=0.95, gauge_units=1.0, icd_group="NONE",
     )
 
-    # --- Elemental Bursts ---
+    # Blessed Spear: Dolgomernoye Normal Attacks (Spear_N1..Spear_N5)
+    # Final instance of each NA converts to Stellar-Conduct / Stellar Swirl DMG under Radiance.
+    spear_n1 = models.Ability(
+        "Blessed Spear: Dolgomernoye", "Spear 1-Hit", 0.0,
+        element="Cryo", attack_type="Normal Attack",
+        tags=["Normal Attack", "Blessed Spear", "Blessed Spear: Dolgomernoye"],
+        hit_offsets=[], cast_duration=0.3333 + 0.0823,
+        sub_abilities=_radiance_variant_subs(
+            "Blessed Spear: Dolgomernoye", "Spear 1-Hit", "Cryo", "Normal Attack",
+            normal_mv=1.129 * skill_scale,
+            sc_mv=0.780 * skill_scale,
+            ss_mv=1.170 * skill_scale,
+            hit_offsets=[0.1667],
+            extra_tags=["Normal Attack", "Blessed Spear", "Blessed Spear: Dolgomernoye"],
+            gauge_units=1.0,
+            icd_group="BlessedSpearNA",
+            icd_hits=2,
+        ),
+    )
+    spear_n2 = models.Ability(
+        "Blessed Spear: Dolgomernoye", "Spear 2-Hit", 0.591 * skill_scale,
+        element="Cryo", attack_type="Normal Attack",
+        tags=["Normal Attack", "Blessed Spear", "Blessed Spear: Dolgomernoye"],
+        hit_offsets=[0.2000], cast_duration=0.65 + 0.0823, gauge_units=1.0, icd_group="BlessedSpearNA", icd_hits=2,
+        sub_abilities=_radiance_variant_subs(
+            "Blessed Spear: Dolgomernoye", "Spear 2-Hit Final", "Cryo", "Normal Attack",
+            normal_mv=0.591 * skill_scale,
+            sc_mv=0.817 * skill_scale,
+            ss_mv=1.226 * skill_scale,
+            hit_offsets=[0.4333],
+            extra_tags=["Normal Attack", "Blessed Spear", "Blessed Spear: Dolgomernoye"],
+            gauge_units=1.0,
+            icd_group="BlessedSpearNA",
+            icd_hits=2,
+        ),
+    )
+    spear_n3 = models.Ability(
+        "Blessed Spear: Dolgomernoye", "Spear 3-Hit", 0.0,
+        element="Cryo", attack_type="Normal Attack",
+        tags=["Normal Attack", "Blessed Spear", "Blessed Spear: Dolgomernoye"],
+        hit_offsets=[], cast_duration=0.2667 + 0.0823,
+        sub_abilities=_radiance_variant_subs(
+            "Blessed Spear: Dolgomernoye", "Spear 3-Hit", "Cryo", "Normal Attack",
+            normal_mv=1.435 * skill_scale,
+            sc_mv=0.992 * skill_scale,
+            ss_mv=1.488 * skill_scale,
+            hit_offsets=[0.1833],
+            extra_tags=["Normal Attack", "Blessed Spear", "Blessed Spear: Dolgomernoye"],
+            gauge_units=1.0,
+            icd_group="BlessedSpearNA",
+            icd_hits=2,
+        ),
+    )
+    spear_n4 = models.Ability(
+        "Blessed Spear: Dolgomernoye", "Spear 4-Hit", 0.530 * skill_scale,
+        element="Cryo", attack_type="Normal Attack",
+        tags=["Normal Attack", "Blessed Spear", "Blessed Spear: Dolgomernoye"],
+        hit_offsets=[0.18, 0.28], cast_duration=0.8333, gauge_units=1.0, icd_group="BlessedSpearNA", icd_hits=2,
+        sub_abilities=_radiance_variant_subs(
+            "Blessed Spear: Dolgomernoye", "Spear 4-Hit Final", "Cryo", "Normal Attack",
+            normal_mv=0.530 * skill_scale,
+            sc_mv=1.134 * skill_scale,
+            ss_mv=1.701 * skill_scale,
+            hit_offsets=[0.38],
+            extra_tags=["Normal Attack", "Blessed Spear", "Blessed Spear: Dolgomernoye"],
+            gauge_units=1.0,
+            icd_group="BlessedSpearNA",
+            icd_hits=2,
+        ),
+    )
+    spear_n5 = models.Ability(
+        "Blessed Spear: Dolgomernoye", "Spear 5-Hit", 0.638 * skill_scale,
+        element="Cryo", attack_type="Normal Attack",
+        tags=["Normal Attack", "Blessed Spear", "Blessed Spear: Dolgomernoye"],
+        hit_offsets=[0.20, 0.32], cast_duration=0.8333, gauge_units=1.0, icd_group="BlessedSpearNA", icd_hits=2,
+        sub_abilities=_radiance_variant_subs(
+            "Blessed Spear: Dolgomernoye", "Spear 5-Hit Final", "Cryo", "Normal Attack",
+            normal_mv=0.638 * skill_scale,
+            sc_mv=1.384 * skill_scale,
+            ss_mv=2.076 * skill_scale,
+            hit_offsets=[0.44],
+            extra_tags=["Normal Attack", "Blessed Spear", "Blessed Spear: Dolgomernoye"],
+            gauge_units=1.0,
+            icd_group="BlessedSpearNA",
+            icd_hits=2,
+        ),
+    )
+
+    # 3. Elemental Burst: To the New World / The Evernight Yields to Dawn (Lv. 10 / Lv. 13 at C3)
     burst_love = models.Ability(
-        parent_name="To the New World",
-        component_name="Skill DMG",
-        mv=burst_love_mv,
-        element="Cryo",
-        attack_type="Elemental Burst",
-        required_states=["Blessing of Love"],
-        tags=["Love Burst"],
-        cast_duration=1.20,
-        hit_offsets=[0.40],
-        icd_group="NONE",
+        "To the New World", "To the New World Skill DMG", 3.607 * burst_scale,
+        element="Cryo", attack_type="Elemental Burst",
+        tags=["Elemental Burst", "To the New World"],
+        hit_offsets=[0.80], cast_duration=1.50, gauge_units=2.0, icd_group="NONE",
+        required_states=["!Blessing of Honor"],
     )
+
     burst_honor = models.Ability(
-        parent_name="The Evernight Yields to Dawn",
-        component_name="Burst Cast",
-        mv=0.0,
-        element="Cryo",
-        attack_type="Elemental Burst",
+        "The Evernight Yields to Dawn", "The Evernight Yields to Dawn", 0.0,
+        element="Cryo", attack_type="Stellar-Conduct",
+        tags=["Elemental Burst", "Evernight Yields to Dawn", "The Evernight Yields to Dawn"],
+        hit_offsets=[], cast_duration=1.8333,
         required_states=["Blessing of Honor"],
-        tags=["Honor Burst"],
-        cast_duration=1.20,
-        gauge_units=0.0,
         sub_abilities=[
             models.Ability(
-                parent_name="The Evernight Yields to Dawn",
-                component_name="Skill DMG (SC)",
-                mv=burst_honor_sc_mv,
-                element="Cryo",
-                attack_type="Stellar-Conduct",
-                required_states=["Blessing of Honor", "!Radiance: Stellar Swirl"],
-                tags=["Elemental Burst", "Stellar", "Stellar-Conduct", "Honor Burst"],
-                hit_offsets=[0.40],
-                icd_group="NONE",
+                "The Evernight Yields to Dawn", "Evernight Burst (Stellar-Conduct)",
+                5.611 * burst_scale, element="Cryo", attack_type="Stellar-Conduct",
+                tags=["Elemental Burst", "Evernight Yields to Dawn", "Stellar", "Stellar-Conduct"],
+                hit_offsets=[1.8333], gauge_units=1.0, icd_group="NONE",
+                required_states=["!Radiance: Stellar Swirl"],
             ),
             models.Ability(
-                parent_name="The Evernight Yields to Dawn",
-                component_name="Skill DMG (SS)",
-                mv=burst_honor_ss_mv,
-                element="Cryo",
-                attack_type="Stellar Swirl",
-                required_states=["Blessing of Honor", "Radiance: Stellar Swirl"],
-                tags=["Elemental Burst", "Stellar", "Stellar Swirl", "Honor Burst"],
-                hit_offsets=[0.40],
-                icd_group="NONE",
+                "The Evernight Yields to Dawn", "Evernight Burst (Stellar Swirl)",
+                8.417 * burst_scale, element="Cryo", attack_type="Stellar Swirl",
+                tags=["Elemental Burst", "Evernight Yields to Dawn", "Stellar", "Stellar Swirl"],
+                hit_offsets=[1.8333], gauge_units=1.0, icd_group="NONE",
+                required_states=["!Radiance: Stellar-Conduct", "Radiance: Stellar Swirl"],
             ),
         ],
     )
 
-    # --- Palestar Edicts (Triumph & Doom) ---
+    # Special Unsealing Elemental Skills: Palestar Edict: Triumph & Palestar Edict: Doom
     triumph = models.Ability(
-        parent_name="Palestar Edict: Triumph",
-        component_name="Triumph Cast",
-        mv=0.0,
-        element="Cryo",
-        attack_type="Elemental Skill",
-        required_states=["Triumph Ready"],
-        tags=["Triumph"],
-        cast_duration=0.50,
-        gauge_units=0.0,
+        "Palestar Edict: Triumph", "Palestar Edict: Triumph", 0.0,
+        element="Cryo", attack_type="Stellar-Conduct",
+        tags=["Elemental Skill", "Palestar Edict: Triumph"],
+        hit_offsets=[], cast_duration=0.40,
         sub_abilities=[
             models.Ability(
-                parent_name="Palestar Edict: Triumph",
-                component_name="Triumph DMG (SC)",
-                mv=triumph_sc_mv,
-                element="Cryo",
-                attack_type="Stellar-Conduct",
-                required_states=["Triumph Cast", "!Radiance: Stellar Swirl"],
-                tags=["Elemental Skill", "Stellar", "Stellar-Conduct"],
-                hit_offsets=[0.20],
-                icd_group="NONE",
+                "Palestar Edict: Triumph", "Triumph (Stellar-Conduct)",
+                4.008 * burst_scale, element="Cryo", attack_type="Stellar-Conduct",
+                tags=["Elemental Skill", "Palestar Edict: Triumph", "Stellar", "Stellar-Conduct"],
+                hit_offsets=[0.20], gauge_units=1.0,
+                required_states=["!Radiance: Stellar Swirl"],
             ),
             models.Ability(
-                parent_name="Palestar Edict: Triumph",
-                component_name="Triumph DMG (SS)",
-                mv=triumph_ss_mv,
-                element="Cryo",
-                attack_type="Stellar Swirl",
-                required_states=["Triumph Cast", "Radiance: Stellar Swirl"],
-                tags=["Elemental Skill", "Stellar", "Stellar Swirl"],
-                hit_offsets=[0.20],
-                icd_group="NONE",
+                "Palestar Edict: Triumph", "Triumph (Stellar Swirl)",
+                6.012 * burst_scale, element="Cryo", attack_type="Stellar Swirl",
+                tags=["Elemental Skill", "Palestar Edict: Triumph", "Stellar", "Stellar Swirl"],
+                hit_offsets=[0.20], gauge_units=1.0,
+                required_states=["!Radiance: Stellar-Conduct", "Radiance: Stellar Swirl"],
             ),
         ],
     )
 
-    doom_cryo_hits = [
-        models.Ability(
-            parent_name="Palestar Edict: Doom",
-            component_name=f"Doom Cryo ({i})",
-            mv=doom_cryo_mv,
-            element="Cryo",
-            attack_type="Elemental Skill",
-            required_states=["Doom Cast"],
-            tags=["Doom"],
-            hit_offsets=[0.10 + 0.05 * (i - 1)],
-            icd_group="NONE",
-        )
-        for i in range(1, 6)
-    ]
-    doom = models.Ability(
-        parent_name="Palestar Edict: Doom",
-        component_name="Doom Cast",
-        mv=0.0,
-        element="Cryo",
-        attack_type="Elemental Skill",
-        required_states=["Doom Ready"],
-        tags=["Doom"],
-        cast_duration=0.80,
-        gauge_units=0.0,
+    doom_1 = models.Ability(
+        "Palestar Edict: Doom", "Doom Stage 1", 0.481 * burst_scale,
+        element="Cryo", attack_type="Elemental Skill",
+        tags=["Elemental Skill", "Palestar Edict: Doom"],
+        hit_offsets=[0.10, 0.18, 0.26, 0.34, 0.42], cast_duration=0.70,
+        gauge_units=1.0, icd_group="PalestarDoom", icd_time=2.5, icd_hits=3,
         sub_abilities=[
-            *doom_cryo_hits,
             models.Ability(
-                parent_name="Palestar Edict: Doom",
-                component_name="Doom 1-Hit (SC)",
-                mv=doom_h1_sc_mv,
-                element="Cryo",
-                attack_type="Stellar-Conduct",
-                required_states=["Doom Cast", "!Radiance: Stellar Swirl"],
-                tags=["Elemental Skill", "Stellar", "Stellar-Conduct", "Doom"],
-                hit_offsets=[0.35],
-                icd_group="NONE",
+                "Palestar Edict: Doom", "Doom Stage 1 (Stellar-Conduct)",
+                1.202 * burst_scale, element="Cryo", attack_type="Stellar-Conduct",
+                tags=["Elemental Skill", "Palestar Edict: Doom", "Stellar", "Stellar-Conduct"],
+                hit_offsets=[0.5667], gauge_units=0.0,
+                required_states=["!Radiance: Stellar Swirl"],
             ),
             models.Ability(
-                parent_name="Palestar Edict: Doom",
-                component_name="Doom 1-Hit (SS)",
-                mv=doom_h1_ss_mv,
-                element="Cryo",
-                attack_type="Stellar Swirl",
-                required_states=["Doom Cast", "Radiance: Stellar Swirl"],
-                tags=["Elemental Skill", "Stellar", "Stellar Swirl", "Doom"],
-                hit_offsets=[0.35],
-                icd_group="NONE",
+                "Palestar Edict: Doom", "Doom Stage 1 (Stellar Swirl)",
+                1.804 * burst_scale, element="Cryo", attack_type="Stellar Swirl",
+                tags=["Elemental Skill", "Palestar Edict: Doom", "Stellar", "Stellar Swirl"],
+                hit_offsets=[0.5667], gauge_units=0.0,
+                required_states=["!Radiance: Stellar-Conduct", "Radiance: Stellar Swirl"],
+            ),
+        ],
+    )
+    doom_2 = models.Ability(
+        "Palestar Edict: Doom", "Doom Stage 2", 0.0,
+        element="Cryo", attack_type="Stellar-Conduct",
+        tags=["Elemental Skill", "Palestar Edict: Doom"],
+        hit_offsets=[], cast_duration=0.80,
+        sub_abilities=[
+            models.Ability(
+                "Palestar Edict: Doom", "Doom Stage 2 (Stellar-Conduct)",
+                2.004 * burst_scale, element="Cryo", attack_type="Stellar-Conduct",
+                tags=["Elemental Skill", "Palestar Edict: Doom", "Stellar", "Stellar-Conduct"],
+                hit_offsets=[0.4167], gauge_units=0.0,
+                required_states=["!Radiance: Stellar Swirl"],
             ),
             models.Ability(
-                parent_name="Palestar Edict: Doom",
-                component_name="Doom 2-Hit (SC)",
-                mv=doom_h2_sc_mv,
-                element="Cryo",
-                attack_type="Stellar-Conduct",
-                required_states=["Doom Cast", "!Radiance: Stellar Swirl"],
-                tags=["Elemental Skill", "Stellar", "Stellar-Conduct", "Doom"],
-                hit_offsets=[0.50],
-                icd_group="NONE",
+                "Palestar Edict: Doom", "Doom Stage 2 (Stellar Swirl)",
+                3.006 * burst_scale, element="Cryo", attack_type="Stellar Swirl",
+                tags=["Elemental Skill", "Palestar Edict: Doom", "Stellar", "Stellar Swirl"],
+                hit_offsets=[0.4167], gauge_units=0.0,
+                required_states=["!Radiance: Stellar-Conduct", "Radiance: Stellar Swirl"],
+            ),
+        ],
+    )
+    doom_3 = models.Ability(
+        "Palestar Edict: Doom", "Doom Stage 3", 0.0,
+        element="Cryo", attack_type="Stellar-Conduct",
+        tags=["Elemental Skill", "Palestar Edict: Doom"],
+        hit_offsets=[], cast_duration=1.7333,
+        sub_abilities=[
+            models.Ability(
+                "Palestar Edict: Doom", "Doom Stage 3 (Stellar-Conduct)",
+                2.806 * burst_scale, element="Cryo", attack_type="Stellar-Conduct",
+                tags=["Elemental Skill", "Palestar Edict: Doom", "Stellar", "Stellar-Conduct"],
+                hit_offsets=[1.2833], gauge_units=1.0, icd_group="NONE",
+                required_states=["!Radiance: Stellar Swirl"],
             ),
             models.Ability(
-                parent_name="Palestar Edict: Doom",
-                component_name="Doom 2-Hit (SS)",
-                mv=doom_h2_ss_mv,
-                element="Cryo",
-                attack_type="Stellar Swirl",
-                required_states=["Doom Cast", "Radiance: Stellar Swirl"],
-                tags=["Elemental Skill", "Stellar", "Stellar Swirl", "Doom"],
-                hit_offsets=[0.50],
-                icd_group="NONE",
+                "Palestar Edict: Doom", "Doom Stage 3 (Stellar Swirl)",
+                4.208 * burst_scale, element="Cryo", attack_type="Stellar Swirl",
+                tags=["Elemental Skill", "Palestar Edict: Doom", "Stellar", "Stellar Swirl"],
+                hit_offsets=[1.2833], gauge_units=1.0, icd_group="NONE",
+                required_states=["!Radiance: Stellar-Conduct", "Radiance: Stellar Swirl"],
+            ),
+        ],
+    )
+    doom_full = models.Ability(
+        "Palestar Edict: Doom", "Palestar Edict: Doom (Full)", 0.481 * burst_scale,
+        element="Cryo", attack_type="Elemental Skill",
+        tags=["Elemental Skill", "Palestar Edict: Doom"],
+        hit_offsets=[0.10, 0.18, 0.26, 0.34, 0.42], cast_duration=3,
+        gauge_units=1.0, icd_group="PalestarDoom",
+        sub_abilities=[
+            *doom_1.sub_abilities,
+            models.Ability(
+                "Palestar Edict: Doom", "Doom Stage 2 Full (Stellar-Conduct)",
+                2.004 * burst_scale, element="Cryo", attack_type="Stellar-Conduct",
+                tags=["Elemental Skill", "Palestar Edict: Doom", "Stellar", "Stellar-Conduct"],
+                hit_offsets=[1.3333], gauge_units=1.0, icd_group="NONE",
+                required_states=["!Radiance: Stellar Swirl"],
             ),
             models.Ability(
-                parent_name="Palestar Edict: Doom",
-                component_name="Doom 3-Hit (SC)",
-                mv=doom_h3_sc_mv,
-                element="Cryo",
-                attack_type="Stellar-Conduct",
-                required_states=["Doom Cast", "!Radiance: Stellar Swirl"],
-                tags=["Elemental Skill", "Stellar", "Stellar-Conduct", "Doom"],
-                hit_offsets=[0.65],
-                icd_group="NONE",
+                "Palestar Edict: Doom", "Doom Stage 2 Full (Stellar Swirl)",
+                3.006 * burst_scale, element="Cryo", attack_type="Stellar Swirl",
+                tags=["Elemental Skill", "Palestar Edict: Doom", "Stellar", "Stellar Swirl"],
+                hit_offsets=[1.3333], gauge_units=1.0, icd_group="NONE",
+                required_states=["!Radiance: Stellar-Conduct", "Radiance: Stellar Swirl"],
             ),
             models.Ability(
-                parent_name="Palestar Edict: Doom",
-                component_name="Doom 3-Hit (SS)",
-                mv=doom_h3_ss_mv,
-                element="Cryo",
-                attack_type="Stellar Swirl",
-                required_states=["Doom Cast", "Radiance: Stellar Swirl"],
-                tags=["Elemental Skill", "Stellar", "Stellar Swirl", "Doom"],
-                hit_offsets=[0.65],
-                icd_group="NONE",
+                "Palestar Edict: Doom", "Doom Stage 3 Full (Stellar-Conduct)",
+                2.806 * burst_scale, element="Cryo", attack_type="Stellar-Conduct",
+                tags=["Elemental Skill", "Palestar Edict: Doom", "Stellar", "Stellar-Conduct"],
+                hit_offsets=[3.00], gauge_units=1.0, icd_group="NONE",
+                required_states=["!Radiance: Stellar Swirl"],
+            ),
+            models.Ability(
+                "Palestar Edict: Doom", "Doom Stage 3 Full (Stellar Swirl)",
+                4.208 * burst_scale, element="Cryo", attack_type="Stellar Swirl",
+                tags=["Elemental Skill", "Palestar Edict: Doom", "Stellar", "Stellar Swirl"],
+                hit_offsets=[3.00], gauge_units=1.0, icd_group="NONE",
+                required_states=["!Radiance: Stellar-Conduct", "Radiance: Stellar Swirl"],
             ),
         ],
     )
 
-    # --- State Rules ---
+    # C6 Special Coordinated Attacks (200% Triumph on Love swap-in; 250% Doom 3 on Honor tap Skill)
+    c6_triumph_sc = models.Ability(
+        "Look Up, a Dawn Unstained Shall Rise", "C6 Triumph (Stellar-Conduct)",
+        2.0 * 4.008 * burst_scale, element="Cryo", attack_type="Stellar-Conduct",
+        tags=["Elemental Skill", "Palestar Edict: Triumph", "Stellar", "Stellar-Conduct"],
+        hit_offsets=[0.0], gauge_units=1.0, icd_group="NONE",
+        required_states=["!Radiance: Stellar Swirl"],
+    )
+    c6_triumph_ss = models.Ability(
+        "Look Up, a Dawn Unstained Shall Rise", "C6 Triumph (Stellar Swirl)",
+        2.0 * 6.012 * burst_scale, element="Cryo", attack_type="Stellar Swirl",
+        tags=["Elemental Skill", "Palestar Edict: Triumph", "Stellar", "Stellar Swirl"],
+        hit_offsets=[0.0], gauge_units=1.0, icd_group="NONE",
+        required_states=["!Radiance: Stellar-Conduct", "Radiance: Stellar Swirl"],
+    )
+    c6_doom3_sc = models.Ability(
+        "Look Up, a Dawn Unstained Shall Rise", "C6 Doom Stage 3 (Stellar-Conduct)",
+        2.5 * 2.806 * burst_scale, element="Cryo", attack_type="Stellar-Conduct",
+        tags=["Elemental Skill", "Palestar Edict: Doom", "Stellar", "Stellar-Conduct"],
+        cast_duration=1.7333,
+        hit_offsets=[1.2833], gauge_units=1.0, icd_group="NONE",
+        required_states=["!Radiance: Stellar Swirl"],
+    )
+    c6_doom3_ss = models.Ability(
+        "Look Up, a Dawn Unstained Shall Rise", "C6 Doom Stage 3 (Stellar Swirl)",
+        2.5 * 4.208 * burst_scale, element="Cryo", attack_type="Stellar Swirl",
+        tags=["Elemental Skill", "Palestar Edict: Doom", "Stellar", "Stellar Swirl"],
+        hit_offsets=[0.0], gauge_units=1.0, icd_group="NONE",
+        required_states=["!Radiance: Stellar-Conduct", "Radiance: Stellar Swirl"],
+    )
+
+    # 4. State Rules (Blessings, Bursts, Sealing, A1 Accolades, P3 Radiance, C2, C6)
     state_rules = [
-        # Skill Stances & Accolades
+        # Tap Skill: Gain Blessing of Love (clears Blessing of Honor) & grant A1 Accolades (20s)
         models.StateRule(
             state_id="Blessing of Love",
-            base_duration=20.0,
-            trigger_tags=["CAST", "Tap Skill"],
+            base_duration=float("inf"),
+            trigger_tags=["CAST", "Anastasya Skill Tap"],
+            trigger_scope="SELF",
+            max_stacks=1,
+            refresh_mode="REFRESH ALL",
             termination_rules=["Blessing of Honor"],
+            target_scope="SELF",
         ),
-        models.StateRule(
-            state_id="Palestar Crown",
-            base_duration=20.0,
-            trigger_tags=["CAST", "Tap Skill"],
-            termination_rules=["Blessing of Honor"],
-        ),
+        # Hold Skill: Gain Blessing of Honor (15.0s, clears Blessing of Love)
         models.StateRule(
             state_id="Blessing of Honor",
             base_duration=15.0,
-            trigger_tags=["CAST", "Hold Skill"],
-            termination_rules=["Blessing of Love", "Palestar Crown"],
+            trigger_tags=["CAST", "Anastasya Skill Hold"],
+            trigger_scope="SELF",
+            max_stacks=1,
+            refresh_mode="REFRESH ALL",
+            termination_rules=["Blessing of Love"],
+            target_scope="SELF",
         ),
-        models.StateRule(
-            state_id="Accolades",
-            base_duration=20.0,
-            trigger_tags=["CAST", "Polestar Skill"],
-        ),
-        # Love Burst -> Anastasya Seals on swap-out
+        # Burst (Love): To the New World (20.0s) & freezes Palestar Crown duration
         models.StateRule(
             state_id="To the New World",
             base_duration=20.0,
-            trigger_tags=["CAST", "Love Burst"],
-            required_states=["Blessing of Love"],
+            trigger_tags=["CAST", "To the New World"],
+            trigger_scope="SELF",
+            max_stacks=1,
+            refresh_mode="REFRESH ALL",
             freeze_state=["Palestar Crown"],
+            target_scope="GLOBAL",
         ),
+        # Burst (Love) Sealing: Switching Anastasya off-field during To the New World Seals her
         models.StateRule(
-            state_id="Sealed",
-            base_duration=sealed_duration,
-            trigger_tags=["SWAP_OUT"],
-            required_states=["To the New World", "!Love Seal Used"],
-            target_scope="SELF",
-        ),
-        models.StateRule(
-            state_id="Anastasya Accolades Sharing",
-            base_duration=sealed_duration + 8.0,
-            trigger_tags=["SWAP_OUT"],
-            required_states=["To the New World", "!Love Seal Used"],
-            target_scope="SELF",
-        ),
-        models.StateRule(
-            state_id="Love Seal Used",
+            state_id="Anastasya Sealed",
             base_duration=20.0,
             trigger_tags=["SWAP_OUT"],
-            required_states=["To the New World", "!Love Seal Used"],
-            target_scope="SELF",
+            trigger_scope="SELF",
+            required_states=["To the New World"],
+            max_stacks=1,
+            refresh_mode="REFRESH ALL",
+            target_scope="GLOBAL",
         ),
+        # When Anastasya's Sealed state ends, she can trigger Palestar Edict: Triumph on swap-in
         models.StateRule(
             state_id="Triumph Ready",
-            base_duration=15.0,
-            trigger_tags=["STATE_EXPIRE", "Sealed"],
-            trigger_scope="SELF",
+            base_duration=8.0,
+            trigger_tags=["STATE_EXPIRE", "Anastasya Sealed"],
+            max_stacks=1,
+            refresh_mode="REFRESH ALL",
             target_scope="SELF",
         ),
-        # Honor Burst -> Seals up to 3 other teammates
         models.StateRule(
-            state_id="The Evernight Yields to Dawn",
+            state_id="Triumph Swap Trigger",
+            base_duration=0.0,
+            trigger_tags=["SWAP_IN"],
+            trigger_scope="SELF",
+            required_states=["Triumph Ready"],
+            consume_stacks={"Triumph Ready": 1},
+            target_scope="SELF",
+            triggered_ability=triumph,
+        ),
+        # Burst (Honor): The Evernight Yields to Dawn (14.0s), freezes Blessing of Honor & Seals teammates
+        models.StateRule(
+            state_id="Evernight Yields to Dawn",
             base_duration=14.0,
-            trigger_tags=["CAST", "Honor Burst"],
-            required_states=["Blessing of Honor"],
+            trigger_tags=["CAST", "Evernight Yields to Dawn"],
+            trigger_scope="SELF",
+            max_stacks=1,
+            refresh_mode="REFRESH ALL",
             freeze_state=["Blessing of Honor"],
+            target_scope="SELF",
         ),
         models.StateRule(
-            state_id="Sealed",
-            base_duration=sealed_duration,
-            trigger_tags=["CAST", "Honor Burst"],
-            required_states=["Blessing of Honor"],
-            target_scope="OTHER_TEAMMATES",
-        ),
-        models.StateRule(
-            state_id="Teammate Accolades Sharing",
-            base_duration=sealed_duration + 8.0,
-            trigger_tags=["CAST", "Honor Burst"],
-            required_states=["Blessing of Honor"],
-            target_scope="OTHER_TEAMMATES",
+            state_id="Teammates Sealed",
+            base_duration=14.0,
+            trigger_tags=["CAST", "Evernight Yields to Dawn"],
+            trigger_scope="SELF",
+            max_stacks=1,
+            refresh_mode="REFRESH ALL",
+            target_scope="GLOBAL",
         ),
         models.StateRule(
             state_id="Doom Ready",
-            base_duration=15.0,
-            trigger_tags=["STATE_EXPIRE", "Sealed"],
-            trigger_scope="OTHER_TEAMMATES",
+            base_duration=8.0,
+            trigger_tags=["STATE_EXPIRE", "Teammates Sealed"],
+            max_stacks=1,
+            refresh_mode="REFRESH ALL",
             target_scope="SELF",
         ),
-        # Edict Cast Gates
+        # A1: All party members gain Accolades for 20s after Anastasya uses Elemental Skill
         models.StateRule(
-            state_id="Triumph Cast",
-            base_duration=1.0,
-            trigger_tags=["CAST", "Triumph"],
-            required_states=["Triumph Ready"],
-            termination_rules=["Triumph Ready"],
-            target_scope="SELF",
+            state_id="Accolades",
+            base_duration=20.0,
+            trigger_tags=["CAST", "Anastasya Skill"],
+            trigger_scope="SELF",
+            max_stacks=1,
+            refresh_mode="REFRESH ALL",
+            target_scope="GLOBAL",
         ),
+        # P3: Anastasya gains Radiance: Stellar Swirl for 8s when any party member triggers Stellar Swirl
         models.StateRule(
-            state_id="Doom Cast",
-            base_duration=1.0,
-            trigger_tags=["CAST", "Doom"],
-            required_states=["Doom Ready"],
-            termination_rules=["Doom Ready"],
+            state_id="Radiance: Stellar Swirl",
+            base_duration=8.0,
+            trigger_tags=["REACTION", "Stellar Swirl"],
+            trigger_scope="TEAM",
+            max_stacks=1,
+            refresh_mode="REFRESH ALL",
             target_scope="SELF",
         ),
     ]
 
-    # --- Constellation State Rules ---
     if constellation >= 2:
         state_rules.extend([
+            # C2 (Love): +50% Stellar Glimmer Crit DMG for 30s on Tap Skill
             models.StateRule(
-                state_id="C2 Love Buff",
+                state_id="Anastasya C2 Love",
                 base_duration=30.0,
-                trigger_tags=["CAST", "Tap Skill"],
+                trigger_tags=["CAST", "Anastasya Skill Tap"],
+                trigger_scope="SELF",
+                max_stacks=1,
+                refresh_mode="REFRESH ALL",
+                target_scope="GLOBAL",
             ),
+            # C2 (Honor): 125% Original DMG for NA, Evernight Burst, and Doom for 15s on Hold Skill
             models.StateRule(
-                state_id="C2 Honor Buff",
+                state_id="Anastasya C2 Honor",
                 base_duration=15.0,
-                trigger_tags=["CAST", "Hold Skill"],
+                trigger_tags=["CAST", "Anastasya Skill Hold"],
+                trigger_scope="SELF",
+                max_stacks=1,
+                refresh_mode="REFRESH ALL",
+                target_scope="SELF",
             ),
         ])
 
     if constellation >= 6:
-        c6_triumph_auto = models.Ability(
-            parent_name="Palestar Edict: Triumph (C6)",
-            component_name="C6 Auto Triumph",
-            mv=0.0,
-            element="Cryo",
-            attack_type="Elemental Skill",
-            gauge_units=0.0,
-            sub_abilities=[
-                models.Ability(
-                    parent_name="Palestar Edict: Triumph (C6)",
-                    component_name="C6 Triumph DMG (SC)",
-                    mv=c6_triumph_sc_mv,
-                    element="Cryo",
-                    attack_type="Stellar-Conduct",
-                    required_states=["!Radiance: Stellar Swirl"],
-                    tags=["Elemental Skill", "Stellar", "Stellar-Conduct"],
-                    hit_offsets=[0.0],
-                    icd_group="NONE",
-                ),
-                models.Ability(
-                    parent_name="Palestar Edict: Triumph (C6)",
-                    component_name="C6 Triumph DMG (SS)",
-                    mv=c6_triumph_ss_mv,
-                    element="Cryo",
-                    attack_type="Stellar Swirl",
-                    required_states=["Radiance: Stellar Swirl"],
-                    tags=["Elemental Skill", "Stellar", "Stellar Swirl"],
-                    hit_offsets=[0.0],
-                    icd_group="NONE",
-                ),
-            ],
-        )
-        c6_doom3_auto = models.Ability(
-            parent_name="Palestar Edict: Doom (C6)",
-            component_name="C6 Auto Doom 3-Hit",
-            mv=0.0,
-            element="Cryo",
-            attack_type="Elemental Skill",
-            gauge_units=0.0,
-            sub_abilities=[
-                models.Ability(
-                    parent_name="Palestar Edict: Doom (C6)",
-                    component_name="C6 Doom 3-Hit (SC)",
-                    mv=c6_doom3_sc_mv,
-                    element="Cryo",
-                    attack_type="Stellar-Conduct",
-                    required_states=["!Radiance: Stellar Swirl"],
-                    tags=["Elemental Skill", "Stellar", "Stellar-Conduct", "C6_DOOM_3"],
-                    hit_offsets=[0.0],
-                    icd_group="NONE",
-                ),
-                models.Ability(
-                    parent_name="Palestar Edict: Doom (C6)",
-                    component_name="C6 Doom 3-Hit (SS)",
-                    mv=c6_doom3_ss_mv,
-                    element="Cryo",
-                    attack_type="Stellar Swirl",
-                    required_states=["Radiance: Stellar Swirl"],
-                    tags=["Elemental Skill", "Stellar", "Stellar Swirl", "C6_DOOM_3"],
-                    hit_offsets=[0.0],
-                    icd_group="NONE",
-                ),
-            ],
-        )
         state_rules.extend([
-            # Love activation on Tap Skill (when not consuming C6 Honor Ready)
+            # C6 (Love): Armed on Tap Skill (30s, 15s CD) -> next teammate swap-in triggers 200% Triumph
             models.StateRule(
-                state_id="C6 Love Ready",
+                state_id="Anastasya C6 Love Armed",
                 base_duration=30.0,
-                trigger_tags=["CAST", "Tap Skill"],
-                required_states=["!C6 Cooldown", "!C6 Honor Ready"],
+                trigger_tags=["CAST", "Anastasya Skill Tap"],
+                trigger_scope="SELF",
+                trigger_icd=15.0,
+                max_stacks=1,
+                refresh_mode="REFRESH ALL",
+                target_scope="GLOBAL",
             ),
             models.StateRule(
-                state_id="C6 Love Elevation",
-                base_duration=30.0,
-                trigger_tags=["CAST", "Tap Skill"],
-                required_states=["!C6 Cooldown", "!C6 Honor Ready"],
-            ),
-            models.StateRule(
-                state_id="C6 Cooldown",
-                base_duration=15.0,
-                trigger_tags=["CAST", "Tap Skill"],
-                required_states=["!C6 Cooldown", "!C6 Honor Ready"],
-            ),
-            models.StateRule(
-                state_id="C6 Love Triggered",
+                state_id="Anastasya C6 Love Fire",
                 base_duration=0.0,
-                trigger_tags=["SWAP_OUT"],
-                required_states=["C6 Love Ready"],
-                termination_rules=["C6 Love Ready"],
-                triggered_ability=c6_triumph_auto,
-            ),
-            # Honor activation on Hold Skill
-            models.StateRule(
-                state_id="C6 Honor Ready",
-                base_duration=30.0,
-                trigger_tags=["CAST", "Hold Skill"],
-                required_states=["!C6 Cooldown"],
-            ),
-            models.StateRule(
-                state_id="C6 Honor Elevation",
-                base_duration=30.0,
-                trigger_tags=["CAST", "Hold Skill"],
-                required_states=["!C6 Cooldown"],
-            ),
-            models.StateRule(
-                state_id="C6 Cooldown",
-                base_duration=15.0,
-                trigger_tags=["CAST", "Hold Skill"],
-                required_states=["!C6 Cooldown"],
-            ),
-            models.StateRule(
-                state_id="C6 Honor Triggered",
-                base_duration=0.0,
-                trigger_tags=["CAST", "Tap Skill"],
-                required_states=["C6 Honor Ready"],
-                termination_rules=["C6 Honor Ready"],
-                triggered_ability=c6_doom3_auto,
-            ),
-            models.StateRule(
-                state_id="C6 Honor Expire",
-                base_duration=0.0,
-                trigger_tags=["STATE_EXPIRE", "Sealed"],
+                trigger_tags=["SWAP_IN"],
                 trigger_scope="OTHER_TEAMMATES",
-                termination_rules=["C6 Honor Ready", "C6 Honor Elevation"],
+                required_states=["Anastasya C6 Love Armed"],
+                consume_stacks={"Anastasya C6 Love Armed": 1},
+                target_scope="GLOBAL",
+                triggered_ability=c6_triumph_sc,
+            ),
+            models.StateRule(
+                state_id="Anastasya C6 Love Fire SS",
+                base_duration=0.0,
+                trigger_tags=["SWAP_IN"],
+                trigger_scope="OTHER_TEAMMATES",
+                required_states=["Anastasya C6 Love Armed", "!Radiance: Stellar-Conduct", "Radiance: Stellar Swirl"],
+                consume_stacks={"Anastasya C6 Love Armed": 1},
+                target_scope="GLOBAL",
+                triggered_ability=c6_triumph_ss,
+            ),
+            # C6 (Honor): Armed on Hold Skill (30s, 15s CD) -> next Tap Skill triggers 250% Doom 3
+            models.StateRule(
+                state_id="Anastasya C6 Honor Armed",
+                base_duration=30.0,
+                trigger_tags=["CAST", "Anastasya Skill Hold"],
+                trigger_scope="SELF",
+                trigger_icd=15.0,
+                max_stacks=1,
+                refresh_mode="REFRESH ALL",
+                target_scope="SELF",
+            ),
+            models.StateRule(
+                state_id="Anastasya C6 Honor Fire",
+                base_duration=0.0,
+                trigger_tags=["CAST", "Anastasya Skill Tap"],
+                trigger_scope="SELF",
+                required_states=["Anastasya C6 Honor Armed"],
+                consume_stacks={"Anastasya C6 Honor Armed": 1},
+                target_scope="SELF",
+                triggered_ability=c6_doom3_sc,
+            ),
+            models.StateRule(
+                state_id="Anastasya C6 Honor Fire SS",
+                base_duration=0.0,
+                trigger_tags=["CAST", "Anastasya Skill Tap"],
+                trigger_scope="SELF",
+                required_states=["Anastasya C6 Honor Armed", "!Radiance: Stellar-Conduct", "Radiance: Stellar Swirl"],
+                consume_stacks={"Anastasya C6 Honor Armed": 1},
+                target_scope="SELF",
+                triggered_ability=c6_doom3_ss,
             ),
         ])
 
-    # --- Buff Rules ---
-    own_accolades_reqs = (
-        ["Accolades"]
-        if constellation >= 1
-        else ["Accolades", "!Anastasya Accolades Sharing", "!Teammate Accolades Sharing"]
-    )
+    # 5. Buff Rules (A1 Accolades + Sealing Division, A4, P3, Burst_Love, C1, C2, C4, C6)
+    accolade_mult = 1.30 if constellation >= 4 else 1.0
+    base_cd = 0.12 * accolade_mult
+    base_cryo_atk = 0.15 * accolade_mult
+    base_other_em = 60.0 * accolade_mult
+
+    # Sealing division multipliers:
+    # - Normal (neither Sealed): 1.0x for all
+    # - Anastasya Sealed (Love): Anastasya gets 0x at C0 (1.0x at C1+); teammates get 1 + 1/3 = 4/3x at C0 (1 + 1.0 = 2.0x at C1+)
+    # - Teammates Sealed (Honor): Anastasya gets 1 + 3 = 4.0x; teammates get 0x at C0 (1.0x at C1+)
+    ana_sealed_self_mult = 1.0 if constellation >= 1 else 0.0
+    ana_sealed_tm_mult = 2.0 if constellation >= 1 else (4.0 / 3.0)
+    tm_sealed_tm_mult = 1.0 if constellation >= 1 else 0.0
+
     buff_rules = [
-        # A1: Accolades Sharing (C1 keeps own Accolades while sharing & triples Sealed shared Accolades)
+        # A1 Accolades: Unsealed baseline (+12% CD / +15.6% at C4)
         models.BuffRule(
-            buff_id="ANASTASYA_ACCOLADES_OWN_CD",
+            buff_id="ANA_A1_ACCOLADES_CD_NORMAL",
             buff_name="Accolades Crit DMG",
             stat="Crit Damage",
-            base_value=acc_cd,
-            required_states=own_accolades_reqs,
+            base_value=base_cd,
+            required_states=["Accolades", "!Anastasya Sealed", "!Teammates Sealed"],
             target_scope="TEAM",
         ),
+        # A1 Accolades when Anastasya is Sealed (Love): teammates get divided share (+16% at C0, +24% at C1, +31.2% at C4)
         models.BuffRule(
-            buff_id="ANASTASYA_ACCOLADES_TM_SHARED_CD",
-            buff_name="Teammate Shared Accolades Crit DMG",
+            buff_id="ANA_A1_ACCOLADES_CD_ANA_SEALED_TM",
+            buff_name="Accolades Crit DMG (Anastasya Sealed Share)",
             stat="Crit Damage",
-            base_value=acc_cd,
-            required_states=["ANY:Teammate Accolades Sharing", "Accolades", "!Sealed"],
-            scale_with_stacks=True,
-            party_count_rule="DIVIDE_BY_RECIPIENTS",
-            target_scope="TEAM",
+            base_value=base_cd * ana_sealed_tm_mult,
+            required_states=["Accolades", "Anastasya Sealed"],
+            target_scope="OTHER_TEAMMATES",
         ),
+        # A1 Accolades when Teammates are Sealed (Honor): Anastasya absorbs all 3 teammates' shares (4x = +48% / +62.4% at C4)
         models.BuffRule(
-            buff_id="ANASTASYA_ACCOLADES_ANA_POST_CD",
-            buff_name="Anastasya Post-Seal Shared Accolades Crit DMG",
+            buff_id="ANA_A1_ACCOLADES_CD_TM_SEALED_SELF",
+            buff_name="Accolades Crit DMG (Teammates Sealed Share)",
             stat="Crit Damage",
-            base_value=acc_cd,
-            required_states=["ANY:Anastasya Accolades Sharing", "!ANY:Sealed", "Accolades", "!Sealed"],
-            scale_with_stacks=True,
-            party_count_rule="DIVIDE_BY_RECIPIENTS",
-            target_scope="TEAM",
+            base_value=base_cd * 4.0,
+            required_states=["Accolades", "Teammates Sealed"],
+            target_scope="SELF",
         ),
+        # Burst (Love): To the New World grants +30.0% (Lv. 10) / +35.4% (Lv. 13 C3) Stellar Glimmer Reaction DMG%
         models.BuffRule(
-            buff_id="ANASTASYA_ACCOLADES_ANA_SEALED_CD",
-            buff_name="Anastasya Sealed Shared Accolades Crit DMG",
-            stat="Crit Damage",
-            base_value=acc_cd * (3.0 if constellation >= 1 else 1.0),
-            required_states=["ANY:Anastasya Accolades Sharing", "ANY:Sealed", "Accolades", "!Sealed"],
-            scale_with_stacks=True,
-            party_count_rule="DIVIDE_BY_RECIPIENTS",
+            buff_id="ANA_BURST_LOVE_SG_DMG",
+            buff_name="To the New World Stellar Glimmer DMG%",
+            stat="Reaction DMG%",
+            base_value=0.30 * burst_scale,
+            required_states=["To the New World"],
             target_scope="TEAM",
+            ability_filters=["Stellar-Conduct", "Stellar Swirl"],
         ),
-        # A4: Lament for the Lost (+15% Base Stellar Swirl DMG)
+        # A4: Stellar Swirl base reaction multiplier +10%
         models.BuffRule(
-            buff_id="ANASTASYA_A4_SWIRL",
-            buff_name="Lament for the Lost (Stellar Swirl)",
-            stat="Reaction Base DMG%",
-            base_value=0.15,
+            buff_id="ANA_A4_STELLAR_SWIRL_BASE",
+            buff_name="Lament for the Lost Stellar Swirl Base Mult",
+            stat="Base Reaction Coefficient",
+            base_value=0.10,
             target_scope="TEAM",
             ability_filters=["Stellar Swirl"],
         ),
-        # P3: Stellar Jubilee (Base Stellar-Conduct / Stellar Swirl DMG +0.7% per 100 ATK, max 14%)
+        # P3: +0.7% Stellar-Conduct & Stellar Swirl base DMG per 100 ATK (0.00007 per 1 ATK), up to 14%
         models.BuffRule(
-            buff_id="ANASTASYA_P3_ATK_SCALE",
-            buff_name="Stellar Jubilee ATK Scaling",
+            buff_id="ANA_P3_ATK_TO_SG_BASE",
+            buff_name="Stellar Jubilee Base Reaction Bonus",
             stat="Reaction Base DMG%",
             base_value=0.00007,
             scaling_stat="ATK",
             max_value=0.14,
-            scaling_order=1,
-            target_scope="TEAM",
-            ability_filters=["Stellar-Conduct", "Stellar Swirl"],
-        ),
-        # Elemental Burst: To the New World Stellar Glimmer DMG%
-        models.BuffRule(
-            buff_id="ANASTASYA_LOVE_BURST_DMG",
-            buff_name="To the New World Stellar Glimmer DMG%",
-            stat="Reaction DMG%",
-            base_value=love_burst_dmg_bonus,
-            required_states=["To the New World"],
+            scaling_order=3,
             target_scope="TEAM",
             ability_filters=["Stellar-Conduct", "Stellar Swirl"],
         ),
@@ -732,147 +777,212 @@ def build_anastasya(
 
     if constellation >= 1:
         buff_rules.extend([
+            # C1: Anastasya retains her Accolades while Sealed
             models.BuffRule(
-                buff_id="ANASTASYA_C1_OWN_ATK",
-                buff_name="C1 Accolades Cryo ATK%",
+                buff_id="ANA_C1_ACCOLADES_CD_SELF_RETAINED",
+                buff_name="Accolades Crit DMG (C1 Retained)",
+                stat="Crit Damage",
+                base_value=base_cd * ana_sealed_self_mult,
+                required_states=["Accolades", "Anastasya Sealed"],
+                target_scope="SELF",
+            ),
+            models.BuffRule(
+                buff_id="ANA_C1_ACCOLADES_CD_TM_RETAINED",
+                buff_name="Accolades Crit DMG (C1 Teammates Retained)",
+                stat="Crit Damage",
+                base_value=base_cd * tm_sealed_tm_mult,
+                required_states=["Accolades", "Teammates Sealed"],
+                target_scope="OTHER_TEAMMATES",
+            ),
+            # C1: Accolades grants +15% ATK (+19.5% at C4) to Cryo characters
+            models.BuffRule(
+                buff_id="ANA_C1_ACCOLADES_CRYO_ATK_NORMAL",
+                buff_name="Accolades Cryo ATK%",
                 stat="ATK%",
-                base_value=acc_atk,
-                required_states=["Accolades"],
+                base_value=base_cryo_atk,
+                required_states=["Accolades", "!Anastasya Sealed", "!Teammates Sealed"],
                 target_scope="TEAM",
                 char_element_filters=["Cryo"],
             ),
             models.BuffRule(
-                buff_id="ANASTASYA_C1_OWN_EM",
-                buff_name="C1 Accolades Non-Cryo EM",
+                buff_id="ANA_C1_ACCOLADES_CRYO_ATK_ANA_SEALED_SELF",
+                buff_name="Accolades Cryo ATK% (Anastasya Sealed Retained)",
+                stat="ATK%",
+                base_value=base_cryo_atk,
+                required_states=["Accolades", "Anastasya Sealed"],
+                target_scope="SELF",
+                char_element_filters=["Cryo"],
+            ),
+            models.BuffRule(
+                buff_id="ANA_C1_ACCOLADES_CRYO_ATK_ANA_SEALED_TM",
+                buff_name="Accolades Cryo ATK% (Anastasya Sealed 300% Share)",
+                stat="ATK%",
+                base_value=base_cryo_atk * ana_sealed_tm_mult,
+                required_states=["Accolades", "Anastasya Sealed"],
+                target_scope="OTHER_TEAMMATES",
+                char_element_filters=["Cryo"],
+            ),
+            models.BuffRule(
+                buff_id="ANA_C1_ACCOLADES_CRYO_ATK_TM_SEALED_SELF",
+                buff_name="Accolades Cryo ATK% (Teammates Sealed 4x)",
+                stat="ATK%",
+                base_value=base_cryo_atk * 4.0,
+                required_states=["Accolades", "Teammates Sealed"],
+                target_scope="SELF",
+                char_element_filters=["Cryo"],
+            ),
+            models.BuffRule(
+                buff_id="ANA_C1_ACCOLADES_CRYO_ATK_TM_SEALED_TM",
+                buff_name="Accolades Cryo ATK% (Teammates Sealed Retained)",
+                stat="ATK%",
+                base_value=base_cryo_atk,
+                required_states=["Accolades", "Teammates Sealed"],
+                target_scope="OTHER_TEAMMATES",
+                char_element_filters=["Cryo"],
+            ),
+            # C1: Accolades grants +60 EM (+78 EM at C4) to non-Cryo characters
+            models.BuffRule(
+                buff_id="ANA_C1_ACCOLADES_OTHER_EM_NORMAL",
+                buff_name="Accolades Non-Cryo EM",
                 stat="Elemental Mastery",
-                base_value=acc_em,
-                required_states=["Accolades"],
+                base_value=base_other_em,
+                required_states=["Accolades", "!Anastasya Sealed", "!Teammates Sealed"],
                 target_scope="TEAM",
                 exclude_char_elements=["Cryo"],
             ),
             models.BuffRule(
-                buff_id="ANASTASYA_C1_ANA_SEALED_ATK",
-                buff_name="C1 Sealed Shared Accolades ATK%",
-                stat="ATK%",
-                base_value=acc_atk * 3.0,
-                required_states=["ANY:Anastasya Accolades Sharing", "ANY:Sealed", "Accolades", "!Sealed"],
-                scale_with_stacks=True,
-                party_count_rule="DIVIDE_BY_RECIPIENTS",
-                target_scope="TEAM",
+                buff_id="ANA_C1_ACCOLADES_OTHER_EM_ANA_SEALED_TM",
+                buff_name="Accolades Non-Cryo EM (Anastasya Sealed 300% Share)",
+                stat="Elemental Mastery",
+                base_value=base_other_em * ana_sealed_tm_mult,
+                required_states=["Accolades", "Anastasya Sealed"],
+                target_scope="OTHER_TEAMMATES",
+                exclude_char_elements=["Cryo"],
             ),
             models.BuffRule(
-                buff_id="ANASTASYA_C1_ANA_POST_ATK",
-                buff_name="C1 Post-Seal Shared Accolades ATK%",
-                stat="ATK%",
-                base_value=acc_atk,
-                required_states=["ANY:Anastasya Accolades Sharing", "!ANY:Sealed", "Accolades", "!Sealed"],
-                scale_with_stacks=True,
-                party_count_rule="DIVIDE_BY_RECIPIENTS",
-                target_scope="TEAM",
+                buff_id="ANA_C1_ACCOLADES_OTHER_EM_TM_SEALED_TM",
+                buff_name="Accolades Non-Cryo EM (Teammates Sealed Retained)",
+                stat="Elemental Mastery",
+                base_value=base_other_em,
+                required_states=["Accolades", "Teammates Sealed"],
+                target_scope="OTHER_TEAMMATES",
+                exclude_char_elements=["Cryo"],
             ),
         ])
 
     if constellation >= 2:
         buff_rules.extend([
+            # C2: Party Stellar Glimmer Reaction DMG is Elevated by 5%
             models.BuffRule(
-                buff_id="ANASTASYA_C2_LOVE_CD",
-                buff_name="C2 Love Stellar Glimmer Crit DMG",
-                stat="Crit Damage",
-                base_value=0.60,
-                required_states=["C2 Love Buff"],
+                buff_id="ANA_C2_SG_ELEVATION",
+                buff_name="To Winter C2 Stellar Glimmer Elevation",
+                stat="Elevation",
+                base_value=0.05,
                 target_scope="TEAM",
                 ability_filters=["Stellar-Conduct", "Stellar Swirl"],
             ),
+            # C2 (Love): +50% Crit DMG for party Stellar Glimmer Reaction DMG
             models.BuffRule(
-                buff_id="ANASTASYA_C2_HONOR_MULT",
-                buff_name="C2 Honor Original DMG Mult",
+                buff_id="ANA_C2_LOVE_SG_CD",
+                buff_name="To Winter C2 Love Stellar Glimmer Crit DMG",
+                stat="Crit Damage",
+                base_value=0.50,
+                required_states=["Anastasya C2 Love"],
+                target_scope="TEAM",
+                ability_filters=["Stellar-Conduct", "Stellar Swirl"],
+            ),
+            # C2 (Honor): Anastasya's NAs, Evernight Burst, and Doom deal 125% Original DMG
+            models.BuffRule(
+                buff_id="ANA_C2_HONOR_ORIG_DMG",
+                buff_name="To Winter C2 Honor 125% Original DMG",
                 stat="Original DMG Mult",
                 base_value=1.25,
-                required_states=["C2 Honor Buff"],
+                required_states=["Anastasya C2 Honor"],
                 target_scope="SELF",
-                ability_filters=["Normal Attack", "Honor Burst", "Doom"],
-            ),
-            models.BuffRule(
-                buff_id="ANASTASYA_C2_HONOR_ELEV",
-                buff_name="C2 Honor Stellar Glimmer Elevation",
-                stat="Elevation%",
-                base_value=0.05,
-                required_states=["C2 Honor Buff"],
-                target_scope="TEAM",
-                ability_filters=["Stellar-Conduct", "Stellar Swirl"],
+                ability_filters=[
+                    "The Dawn Beyond the Everwinter",
+                    "Blessed Spear",
+                    "Blessed Spear: Dolgomernoye",
+                    "The Evernight Yields to Dawn",
+                    "Palestar Edict: Doom",
+                ],
             ),
         ])
 
     if constellation >= 6:
         buff_rules.extend([
+            # C6 (Love): Party Stellar Glimmer Reaction DMG Elevated by 10% for 30s
             models.BuffRule(
-                buff_id="ANASTASYA_C6_LOVE_ELEV",
-                buff_name="C6 Love Stellar Glimmer Elevation",
-                stat="Elevation%",
+                buff_id="ANA_C6_LOVE_SG_ELEVATION",
+                buff_name="Look Up C6 Love Party Stellar Glimmer Elevation",
+                stat="Elevation",
                 base_value=0.10,
-                required_states=["C6 Love Elevation"],
+                required_states=["Anastasya C6 Love Armed"],
                 target_scope="TEAM",
                 ability_filters=["Stellar-Conduct", "Stellar Swirl"],
             ),
+            # C6 (Honor): Anastasya's Stellar Glimmer Reaction DMG Elevated by 20% for 30s
             models.BuffRule(
-                buff_id="ANASTASYA_C6_HONOR_ELEV",
-                buff_name="C6 Honor Stellar Glimmer Elevation",
-                stat="Elevation%",
+                buff_id="ANA_C6_HONOR_SG_ELEVATION",
+                buff_name="Look Up C6 Honor Self Stellar Glimmer Elevation",
+                stat="Elevation",
                 base_value=0.20,
-                required_states=["C6 Honor Elevation"],
+                required_states=["Anastasya C6 Honor Armed"],
                 target_scope="SELF",
                 ability_filters=["Stellar-Conduct", "Stellar Swirl"],
             ),
-            models.BuffRule(
-                buff_id="ANASTASYA_C6_FULL_ACCOLADES_CD",
-                buff_name="C6 Full Party Accolades Crit DMG",
-                stat="Crit Damage",
-                base_value=acc_cd * 3.0,
-                required_states=["Accolades", "!ANY:Sealed"],
-                target_scope="SELF",
-                ability_filters=["C6_DOOM_3"],
-            ),
-            models.BuffRule(
-                buff_id="ANASTASYA_C6_FULL_ACCOLADES_ATK",
-                buff_name="C6 Full Party Accolades ATK%",
-                stat="ATK%",
-                base_value=acc_atk * 3.0,
-                required_states=["Accolades", "!ANY:Sealed"],
-                target_scope="SELF",
-                ability_filters=["C6_DOOM_3"],
-            ),
         ])
 
-    abilities = {
-        "Skill_Tap": skill_tap,
-        "Skill_Hold": skill_hold,
-        "Spear_N1": spear_n1,
-        "Burst_Love": burst_love,
-        "Burst_Honor": burst_honor,
-        "Triumph": triumph,
-        "Doom": doom,
-    }
-
-    anastasya = entities.Character(
+    # 6. Character Assembly & Ability Dictionary
+    character = entities.Character(
         name="Anastasya",
         element="Cryo",
         constellation=constellation,
-        lvl=lvl,
         base_hp=12736.0,
         base_atk=356.0,
         base_def=779.0,
         weapon=weapon,
         weapon_type="Bow",
         artifact_set=artifact_set,
-        ascension_stat={"Crit Damage": 0.384},
         artifact_stats=artifact_stats,
-        abilities=list(abilities.values()),
-        state_rules=state_rules,
-        buff_rules=buff_rules,
-        reaction_override={"Superconduct": "Stellar-Conduct", "Swirl": "Stellar Swirl"},
+        ascension_stat={"Crit Damage": 0.384},
+        lvl=lvl,
+        reaction_override={
+            "Superconduct": "Stellar-Conduct",
+            "Swirl": "Stellar Swirl",
+        },
         polestar_bonus_stacks=1,
         polestar_instant_buff=True,
         instant_lv2_vortex=True,
+        state_rules=state_rules,
+        buff_rules=buff_rules,
     )
 
-    return anastasya, abilities
+    abilities = {
+        "N1": na_1,
+        "N2": na_2,
+        "N3": na_3,
+        "N4": na_4,
+        "N5": na_5,
+        "CA": ca_un,
+        "CA_Charged": ca_ch,
+        "Plunge_Low": plunge_low,
+        "Plunge_High": plunge_high,
+        "Skill_Tap": skill_tap,
+        "Skill_Hold": skill_hold,
+        "Spear_N1": spear_n1,
+        "Spear_N2": spear_n2,
+        "Spear_N3": spear_n3,
+        "Spear_N4": spear_n4,
+        "Spear_N5": spear_n5,
+        "Burst_Love": burst_love,
+        "Burst_Honor": burst_honor,
+        "Triumph": triumph,
+        "Doom_1": doom_1,
+        "Doom_2": doom_2,
+        "Doom_3": doom_3,
+        "Doom": doom_full,
+        "Doom_C6": c6_doom3_sc,
+    }
+
+    return character, abilities
